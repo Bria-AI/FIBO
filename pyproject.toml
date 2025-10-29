@@ -1,0 +1,29 @@
+[project]
+name = "FIBO"
+version = "0.1.0"
+description = "FIBO is an open-source model trained on licensed data, transforming intent into structured control for precise, high-quality AI image generation across enterprise and agentic workflows."
+readme = "README.md"
+authors = [
+    { name = "Kfir Goldberg", email = "kfir@bria.ai" },
+    { name = "Gal Davidi", email = "gal@bria.ai" }
+]
+license = { text = "Attribution-NonCommercial 4.0 International" }
+requires-python = ">=3.10"
+dependencies = [
+    "accelerate==1.10.0",
+    "boltons>=25.0.0",
+    "diffusers==0.35.2",
+    "einops>=0.8.1",
+    "google-genai>=1.44.0",
+    "huggingface-hub>=0.35.3",
+    "sentencepiece==0.2.1",
+    "spaces>=0.42.1",
+    "torch==2.8.0",
+    "torchvision==0.23.0",
+    "transformers==4.57.1",
+    "ujson>=5.11.0",
+]
+
+[tool.uv.sources]
+diffusers = { git = "https://github.com/huggingface/diffusers" }
+
