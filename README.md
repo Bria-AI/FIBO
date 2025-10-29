@@ -104,7 +104,7 @@
 <ul>
   <li><a href="https://docs.bria.ai/image-generation/endpoints/text-to-image-base">Bria.ai</a></li>
   <li><a href="https://fal.ai/models/bria/fibo/generate">Fal.ai</a></li>
-  <li><a href="https://replicate.com/bria/fibo">Replicate</a></li>
+  <li><a href="https://replicate.com/bria/fibo">Replicate (Soon)</a></li>
 </ul>
 
 <p><b>ComfyUI:</b>
