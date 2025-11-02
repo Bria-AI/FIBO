@@ -52,7 +52,7 @@
 </p>
 
 <p align="center">
-  <b>FIBO is the first open-source, JSON-native text-to-image model trained exclusively on long structred captions.</b>
+  <b>FIBO is the first open-source, JSON-native text-to-image model trained exclusively on long structured captions.</b>
   <br><br>
   <i>Fibo sets a new standard for controllability, predictability, and disentanglement.</i>
 </p>
