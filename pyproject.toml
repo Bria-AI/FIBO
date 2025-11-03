@@ -15,7 +15,7 @@ dependencies = [
     "diffusers==0.35.2",
     "einops>=0.8.1",
     "google-genai>=1.44.0",
-    "huggingface-hub>=0.35.3",
+    "huggingface-hub[hf-xet]>=0.35.3",
     "sentencepiece==0.2.1",
     "spaces>=0.42.1",
     "torch==2.8.0",
