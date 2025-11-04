@@ -149,6 +149,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_OUTPUT_PATH,
         help=f"Output image path (default: {DEFAULT_OUTPUT_PATH}).",
     )
+    parser.add_argument(
+        "--enable-teacache",
+        action="store_true",
+        help="Enable TeaCache for faster inference with minimal quality loss.",
+    )
+    parser.add_argument(
+        "--teacache-threshold",
+        type=float,
+        default=1.0,
+        help="TeaCache threshold (0.6-1.0). Higher = faster but potentially lower quality. Default: 1.0",
+    )
     return parser
 
 
@@ -210,6 +221,14 @@ def main():
         negative_payload = get_default_negative_prompt(json.loads(prompt_payload))
 
     pipeline = create_pipeline(pipeline_name=args.pipeline_name, device="cuda")
+    
+    if args.enable_teacache:
+        print(f"Enabling TeaCache with threshold={args.teacache_threshold}")
+        pipeline.enable_teacache(
+            num_inference_steps=args.num_steps,
+            rel_l1_thresh=args.teacache_threshold
+        )
+    
     if isinstance(json_prompt, dict) and "short_description" in json_prompt:
         print(f"short_description: {json_prompt['short_description']}")
 
