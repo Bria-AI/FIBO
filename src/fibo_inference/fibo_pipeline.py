@@ -835,3 +835,33 @@ class BriaFiboPipeline(DiffusionPipeline):
 
         if max_sequence_length is not None and max_sequence_length > 3000:
             raise ValueError(f"`max_sequence_length` cannot be greater than 3000 but is {max_sequence_length}")
+
+
+class BriaFiboPipelineWithLoRA(FluxLoraLoaderMixin, BriaFiboPipeline):
+    r"""
+    A BriaFiboPipeline with LoRA (Low-Rank Adaptation) support.
+    
+    This class extends BriaFiboPipeline with LoRA loading capabilities, allowing you to:
+    - Load LoRA weights using `load_lora_weights()`
+    - Save LoRA weights using `save_lora_weights()`
+    - Unload LoRA weights using `unload_lora_weights()`
+    - Enable/disable LoRA adapters
+    - Fuse/unfuse LoRA weights
+    
+    All other functionality from BriaFiboPipeline remains unchanged.
+    
+    Example:
+        ```python
+        from FIBO.src.fibo_inference.fibo_pipeline import BriaFiboPipelineWithLoRA
+        
+        pipe = BriaFiboPipelineWithLoRA.from_pretrained(
+            "briaai/FIBO",
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+        )
+        pipe.load_lora_weights("path/to/lora/weights")
+        ```
+    """
+
+    transformer_name = "transformer"
+    text_encoder_name = "text_encoder"
