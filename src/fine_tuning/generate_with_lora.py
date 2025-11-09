@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 
 from diffusers import BriaFiboPipeline
 from diffusers.loaders import FluxLoraLoaderMixin
@@ -57,6 +58,18 @@ def parse_args():
         required=True,
         help="Path to structured prompt JSON file"
     )
+    parser.add_argument(
+        "--output_image_path",
+        type=str,
+        default="generated_image.png",
+        help="Path to save the generated image (default: generated_image.png)"
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Seed for the random number generator (default: 42)"
+    )
     return parser.parse_args()
 
 
@@ -78,12 +91,22 @@ def main():
 
     height = 1024
     width = 1024
-
+    
+    generator = torch.Generator(device="cuda").manual_seed(args.seed)
     results = pipe(
         prompt=prompt, num_inference_steps=50, guidance_scale=5,
-        height=height, width=width,
+        height=height, width=width, generator=generator
     )
     img = results.images[0]
+    
+    # Create output directory if it doesn't exist
+    output_dir = os.path.dirname(args.output_image_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
+    # Save the image
+    img.save(args.output_image_path)
+    print(f"Image saved to {args.output_image_path}")
     
     return img
 
