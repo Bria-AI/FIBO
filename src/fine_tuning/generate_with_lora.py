@@ -34,10 +34,6 @@ class BriaFiboPipelineWithLoRA(FluxLoraLoaderMixin, BriaFiboPipeline):
         ```
     """
 
-    transformer_name = "transformer"
-    text_encoder_name = "text_encoder"
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate images with LoRA weights")
     parser.add_argument(

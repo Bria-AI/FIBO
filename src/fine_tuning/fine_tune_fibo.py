@@ -1,7 +1,7 @@
 import argparse
 from datetime import datetime
 import itertools
-import json
+import json, ujson
 import logging
 import os
 from pathlib import Path
@@ -66,15 +66,6 @@ def parse_args():
         type=int,
         default=10,
         help="A seed for reproducible training.",
-    )
-    parser.add_argument(
-        "--resolution",
-        type=int,
-        default=1024,
-        help=(
-            "The resolution for input images, all the images in the train/validation dataset will be resized to this"
-            " resolution"
-        ),
     )
     parser.add_argument(
         "--max_sequence_length",
@@ -301,78 +292,45 @@ def parse_args():
         help="The column of the dataset containing the instance prompt for each image",
     )
     parser.add_argument("--repeats", type=int, default=1, help="How many times to repeat the training data.")
-    parser.add_argument(
-        "--class_data_dir",
-        type=str,
-        default=None,
-        required=False,
-        help="A folder containing the training data of class images.",
-    )
-    parser.add_argument(
-        "--instance_prompt",
-        type=str,
-        default="None",
-        required=False,
-        help="The prompt with identifier specifying the instance, e.g. 'photo of a TOK dog', 'in the style of TOK'",
-    )
-    parser.add_argument(
-        "--class_prompt",
-        type=str,
-        default=None,
-        help="The prompt to specify images in the same class as provided instance images.",
-    )
-    parser.add_argument(
-        "--num_class_images",
-        type=int,
-        default=100,
-        help=(
-            "Minimal class images for prior preservation loss. If there are not enough images already present in"
-            " class_data_dir, additional images will be sampled with class_prompt."
-        ),
-    )
-    parser.add_argument(
-        "--with_prior_preservation",
-        default=False,
-        action="store_true",
-        help="Flag to add prior preservation loss.",
-    )
-    parser.add_argument(
-        "--center_crop",
-        default=True,
-        action="store_true",
-        help=(
-            "Whether to center crop the input images to the resolution. If not set, the images will be randomly"
-            " cropped. The images will be resized to the resolution first before cropping."
-        ),
-    )
 
     args = parser.parse_args()
     return args
 
 
+# Resolution mapping for dynamic aspect ratio selection
+RESOLUTIONS_1k = {
+    0.67: (832, 1248),
+    0.778: (896, 1152),
+    0.883: (960, 1088),
+    1.000: (1024, 1024),
+    1.133: (1088, 960),
+    1.286: (1152, 896),
+    1.462: (1216, 832),
+    1.600: (1280, 800),
+    1.750: (1344, 768),
+}
+
+
+def find_closest_resolution(image_width, image_height):
+    """Find the closest aspect ratio from RESOLUTIONS_1k and return the target dimensions."""
+    image_aspect = image_width / image_height
+    aspect_ratios = list(RESOLUTIONS_1k.keys())
+    closest_ratio = min(aspect_ratios, key=lambda x: abs(x - image_aspect))
+    return RESOLUTIONS_1k[closest_ratio]
+
+
 class DreamBoothDataset(Dataset):
     """
-    A dataset to prepare the instance and class images with the prompts for fine-tuning the model.
-    It pre-processes the images.
+    A dataset to prepare the instance images with the prompts for fine-tuning the model.
+    Images are dynamically resized and center-cropped to the closest aspect ratio from RESOLUTIONS_1k.
     """
 
     def __init__(
         self,
         instance_data_root,
-        instance_prompt,
-        class_prompt,
-        class_data_root=None,
-        class_num=None,
-        size=1024,
         repeats=1,
-        center_crop=False,
     ):
-        self.size = size
-        self.center_crop = center_crop
-
-        self.instance_prompt = instance_prompt
         self.custom_instance_prompts = None
-        self.class_prompt = class_prompt
 
         # if --dataset_name is provided or a metadata jsonl file is provided in the local --instance_data directory,
         # we load the training data using load_dataset
@@ -410,7 +368,7 @@ class DreamBoothDataset(Dataset):
 
             if args.caption_column is None:
                 logger.info(
-                    "No caption column provided, defaulting to instance_prompt for all images. If your dataset "
+                    "No caption column provided. If your dataset "
                     "contains captions/prompts for the images, make sure to specify the "
                     "column as --caption_column"
                 )
@@ -424,7 +382,9 @@ class DreamBoothDataset(Dataset):
                 # create final list of captions according to --repeats
                 self.custom_instance_prompts = []
                 for caption in custom_instance_prompts:
-                    self.custom_instance_prompts.extend(itertools.repeat(caption, repeats))
+                    # Validate and normalize the JSON caption (raises error if invalid)
+                    cleaned_caption = clean_json_caption(caption)
+                    self.custom_instance_prompts.extend(itertools.repeat(cleaned_caption, repeats))
         else:
             self.instance_data_root = Path(instance_data_root)
             if not self.instance_data_root.exists():
@@ -437,100 +397,94 @@ class DreamBoothDataset(Dataset):
         for img in instance_images:
             self.instance_images.extend(itertools.repeat(img, repeats))
 
-        # Create shared base transform components (used for both instance and class images)
-        base_resize = transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR)
-        base_crop = transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size)
-        base_to_tensor_normalize = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize([0.5,0.5,0.5],[0.5,0.5,0.5]),
-            ]
-        )
-
-        # Create transform pipeline for class images (used in __getitem__)
-        self.image_transforms = transforms.Compose(
-            [
-                base_resize,
-                base_crop,
-                *base_to_tensor_normalize.transforms,
-            ]
-        )
-
-        # Pre-process instance images
-        self.pixel_values = []
-        for image in self.instance_images:
-            image = exif_transpose(image)
-            if not image.mode == "RGB":
-                image = image.convert("RGB")
-            image = base_resize(image)
-            image = base_crop(image)
-            image = base_to_tensor_normalize(image)
-            self.pixel_values.append(image)
-
         self.num_instance_images = len(self.instance_images)
         self._length = self.num_instance_images
-
-        if class_data_root is not None:
-            self.class_data_root = Path(class_data_root)
-            self.class_data_root.mkdir(parents=True, exist_ok=True)
-            self.class_images_path = list(self.class_data_root.iterdir())
-            if class_num is not None:
-                self.num_class_images = min(len(self.class_images_path), class_num)
-            else:
-                self.num_class_images = len(self.class_images_path)
-            self._length = max(self.num_class_images, self.num_instance_images)
-        else:
-            self.class_data_root = None
+        
+        # Normalization transform (applied after resize/crop)
+        self.to_tensor_normalize = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+            ]
+        )
 
     def __len__(self):
         return self._length
 
     def __getitem__(self, index):
         example = {}
-        instance_image = self.pixel_values[index % self.num_instance_images]
+        # Get the original image
+        instance_image = self.instance_images[index % self.num_instance_images]
+        
+        # Process image: exif transpose and convert to RGB
+        instance_image = exif_transpose(instance_image)
+        if not instance_image.mode == "RGB":
+            instance_image = instance_image.convert("RGB")
+        
+        # Get image dimensions and find closest resolution
+        img_width, img_height = instance_image.size
+        target_width, target_height = find_closest_resolution(img_width, img_height)
+        
+        # Resize and center crop to target dimensions
+        # Calculate scale factor to ensure we can center crop to target dimensions
+        target_aspect = target_width / target_height
+        img_aspect = img_width / img_height
+        
+        if img_aspect > target_aspect:
+            # Image is wider than target, resize based on height
+            scale = target_height / img_height
+        else:
+            # Image is taller than target, resize based on width
+            scale = target_width / img_width
+        
+        new_width = int(img_width * scale)
+        new_height = int(img_height * scale)
+        
+        # Resize maintaining aspect ratio
+        instance_image = transforms.Resize(
+            (new_height, new_width), 
+            interpolation=transforms.InterpolationMode.BILINEAR
+        )(instance_image)
+        
+        # Center crop to exact target dimensions
+        instance_image = transforms.CenterCrop((target_height, target_width))(instance_image)
+        
+        # Convert to tensor and normalize
+        instance_image = self.to_tensor_normalize(instance_image)
+        
         example["instance_images"] = instance_image
+        example["target_width"] = target_width
+        example["target_height"] = target_height
 
         if self.custom_instance_prompts:
             caption = self.custom_instance_prompts[index % self.num_instance_images]
             if caption:
                 example["instance_prompt"] = caption
             else:
-                example["instance_prompt"] = self.instance_prompt
-
-        else:  # custom prompts were provided, but length does not match size of image dataset
-            example["instance_prompt"] = self.instance_prompt
-
-        if self.class_data_root:
-            class_image = Image.open(self.class_images_path[index % self.num_class_images])
-            class_image = exif_transpose(class_image)
-
-            if not class_image.mode == "RGB":
-                class_image = class_image.convert("RGB")
-            example["class_images"] = self.image_transforms(class_image)
-            example["class_prompt"] = self.class_prompt
+                raise ValueError("Caption cannot be empty when custom_instance_prompts is provided")
+        else:
+            raise ValueError("Captions must be provided via --caption_column when using --dataset_name, or via dataset metadata when loading from directory")
 
         return example
 
 def clean_json_caption(caption):
+    """Validate and normalize JSON caption format. Raises ValueError if caption is not valid JSON."""
     try:
         caption = json.loads(caption)
         return ujson.dumps(caption, escape_forward_slashes=False)
     except Exception as e:
-        print(f"captions must be in json format")
+        raise ValueError(f"Caption must be in valid JSON format. Error: {e}. Caption: {caption[:100] if len(str(caption)) > 100 else caption}")
 
-def collate_fn(examples, with_prior_preservation=False):
+def collate_fn(examples):
     pixel_values = [example["instance_images"] for example in examples]
     captions = [example["instance_prompt"] for example in examples]
-
-    # Concat class and instance examples for prior preservation.
-    # We do this to avoid doing two forward passes.
-    if with_prior_preservation:
-        pixel_values += [example["class_images"] for example in examples]
-        captions += [example["class_prompt"] for example in examples]
+    # Get target dimensions (assuming batch_size=1, so we can get from first example)
+    target_width = examples[0]["target_width"]
+    target_height = examples[0]["target_height"]
 
     pixel_values = torch.stack(pixel_values)
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
-    return pixel_values, captions            
+    return pixel_values, captions, target_width, target_height            
 
         
 def get_accelerator(args, weight_dtype):
@@ -747,8 +701,7 @@ def main(args):
 
     now = datetime.now()
     times_arr=[]
-    # Init dynamic scheduler (resolution dependent)
-    height,width = args.resolution, args.resolution
+    # Init dynamic scheduler (resolution will be determined per batch)
     noise_scheduler = init_training_scheduler()
     
     # encode null prompt ""
@@ -768,20 +721,14 @@ def main(args):
     # Dataset and DataLoaders creation:
     train_dataset = DreamBoothDataset(
         instance_data_root=args.instance_data_dir,
-        instance_prompt=args.instance_prompt,
-        class_prompt=args.class_prompt,
-        class_data_root=args.class_data_dir if args.with_prior_preservation else None,
-        class_num=args.num_class_images,
-        size=args.resolution,
         repeats=args.repeats,
-        center_crop=args.center_crop,
     )
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.train_batch_size,
         shuffle=True,
-        collate_fn=lambda examples: collate_fn(examples, False),
+        collate_fn=collate_fn,
         num_workers=args.dataloader_num_workers,
     )    
         
@@ -801,7 +748,9 @@ def main(args):
                 else:
                     raise e
 
-        pixel_values, captions = batch # On precompute we have vae latent and t5 text embedding                     
+        pixel_values, captions, target_width, target_height = batch # Get batch with dynamic resolution
+        height, width = target_height, target_width
+        
         latents = vae_model.encode(pixel_values.unsqueeze(dim=2).to(accelerator.device))
         latents = latents.latent_dist.mean 
         # img = vae_model.decode(latents)  # pyright: ignore[reportUnusedVariable]
