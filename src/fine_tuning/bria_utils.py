@@ -1,16 +1,13 @@
-from typing import Union, Optional, List
+import os
 import torch
 import numpy as np
-import os
-import math
-from diffusers.utils import logging
+from typing import List, Optional, Union
+
 from diffusers.optimization import get_scheduler
+from diffusers.utils import logging
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-)
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 

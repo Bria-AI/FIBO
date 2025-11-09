@@ -1,37 +1,45 @@
 import argparse
-import os
 from datetime import datetime
-import diffusers
+import itertools
+import json
 import logging
-import torch
-import transformers
-from accelerate import Accelerator
-from accelerate.logging import get_logger
-from accelerate.utils import ProjectConfiguration, set_seed, DistributedDataParallelKwargs
-from huggingface_hub import HfFolder
-from tqdm.auto import tqdm
+import os
 from pathlib import Path
+import random
 import subprocess
 
-import json
-import random
-
-from torch.utils.data import Dataset
-import itertools
 from PIL import Image
-from torchvision import transforms
 from PIL.ImageOps import exif_transpose
-
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
+from accelerate import Accelerator
+from accelerate.logging import get_logger
+from accelerate.utils import (
+    DistributedDataParallelKwargs,
+    ProjectConfiguration,
+    set_seed,
 )
+import diffusers
 from diffusers import AutoencoderKLWan
+from diffusers import BriaFiboPipeline
+from diffusers.models.transformers.transformer_bria_fibo import BriaFiboTransformer2DModel
 
-from src.fibo_inference.transformer_fibo import BriaFiboTransformer2DModel, BriaFiboTransformerBlock, BriaFiboSingleTransformerBlock
-from src.fibo_inference.fibo_pipeline import BriaFiboPipeline
-from src.fine_tuning.bria_utils import CudaTimerContext, get_lr_scheduler, pad_embedding, load_checkpoint, init_training_scheduler, create_attention_matrix, get_smollm_prompt_embeds
-from src.fine_tuning.lora_utils import set_lora_training, cast_training_params
+from huggingface_hub import HfFolder
+import torch
+from torch.utils.data import Dataset
+from torchvision import transforms
+from tqdm.auto import tqdm
+import transformers
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from src.fine_tuning.bria_utils import (
+    CudaTimerContext,
+    create_attention_matrix,
+    get_lr_scheduler,
+    get_smollm_prompt_embeds,
+    init_training_scheduler,
+    load_checkpoint,
+    pad_embedding,
+)
+from src.fine_tuning.lora_utils import cast_training_params, set_lora_training
 
 # Set Logger
 logger = get_logger(__name__, log_level="INFO")
@@ -40,6 +48,12 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Simple example of a training script."
     )
+    parser.add_argument(
+        "--pretrained_model_name_or_path",
+        type=str,
+        default = "briaai/FIBO",
+        required=False,
+    )    
     parser.add_argument(
         "--output_dir",
         type=str,
@@ -590,14 +604,9 @@ def main(args):
     logger.info(f'DIFFUSERS_VERSION {diffusers.__version__}')
 
     logger.info('using precompted datasets')
-    base_dir = Path(__file__).parent.absolute()
-
-
-
         
-    model_path = "briaai/FIBO"
     transformer = BriaFiboTransformer2DModel.from_pretrained(
-        model_path,
+        args. pretrained_model_name_or_path,
         subfolder="transformer",
         low_cpu_mem_usage=False,     # critical: avoid meta tensors
         device_map=None,             # keep on CPU
@@ -624,13 +633,13 @@ def main(args):
     get_prompt_embeds_lambda = get_smollm_prompt_embeds
     print("Loading smolLM text encoder")
     
-    tokenizer = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer")
+    tokenizer = AutoTokenizer.from_pretrained(args. pretrained_model_name_or_path, subfolder="tokenizer")
     text_encoder = AutoModelForCausalLM.from_pretrained(
-        model_path, subfolder="text_encoder",
+        args. pretrained_model_name_or_path, subfolder="text_encoder",
         torch_dtype=weight_dtype
     ).to(accelerator.device).eval().requires_grad_(False) 
         
-    vae_model = AutoencoderKLWan.from_pretrained(model_path, subfolder="vae")
+    vae_model = AutoencoderKLWan.from_pretrained(args. pretrained_model_name_or_path, subfolder="vae")
     vae_model = vae_model.to(accelerator.device).requires_grad_(False)
     # Read vae config
     vae_config_path = Path(__file__).parent / 'vae_wan.json.out'

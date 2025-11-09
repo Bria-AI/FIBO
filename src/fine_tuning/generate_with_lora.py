@@ -1,31 +1,92 @@
+import argparse
 import json
-import os
+
+from diffusers import BriaFiboPipeline
+from diffusers.loaders import FluxLoraLoaderMixin
+import torch
 import ujson
 
-import torch
-from diffusers import BriaFiboPipeline
-from src.fine_tuning.lora_utils import set_lora_training, load_lora
 
-prompt = "A blue bear wears a black tuxedo with a black bow tie. It stands upright beside a tall bar counter and holds a clear martini glass in one paw"
-prompt = {'short_description': f'{prompt}'}
+class BriaFiboPipelineWithLoRA(FluxLoraLoaderMixin, BriaFiboPipeline):
+    r"""
+    A BriaFiboPipeline with LoRA (Low-Rank Adaptation) support.
+    
+    This class extends BriaFiboPipeline with LoRA loading capabilities, allowing you to:
+    - Load LoRA weights using `load_lora_weights()`
+    - Save LoRA weights using `save_lora_weights()`
+    - Unload LoRA weights using `unload_lora_weights()`
+    - Enable/disable LoRA adapters
+    - Fuse/unfuse LoRA weights
+    
+    All other functionality from BriaFiboPipeline remains unchanged.
+    
+    Example:
+        ```python
+        from FIBO.src.fibo_inference.fibo_pipeline import BriaFiboPipelineWithLoRA
+        
+        pipe = BriaFiboPipelineWithLoRA.from_pretrained(
+            "briaai/FIBO",
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+        )
+        pipe.load_lora_weights("path/to/lora/weights")
+        ```
+    """
 
-prompt_short = ujson.dumps(prompt[0], escape_forward_slashes=False)
+    transformer_name = "transformer"
+    text_encoder_name = "text_encoder"
 
-# Load the FIBO pipeline
-pipe = BriaFiboPipeline.from_pretrained(
-    "briaai/FIBO",
-    torch_dtype=torch.bfloat16,
-)
-pipe.to("cuda")
 
-set_lora_training(None,transformer=pipe.transformer, lora_rank=128)
-load_lora(transformer=pipe.transformer, input_dir="/home/ubuntu/enhanced_bears/results_adamw_fixed/checkpoint_400/")
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate images with LoRA weights")
+    parser.add_argument(
+        "--pretrained_model_name_or_path",
+        type=str,
+        default="briaai/FIBO",
+        help="Path to pretrained model or model identifier from Hugging Face"
+    )
+    parser.add_argument(
+        "--lora_ckpt_path",
+        type=str,
+        required=True,
+        help="Path to LoRA checkpoint directory"
+    )
+    parser.add_argument(
+        "--structered_prompt_path",
+        type=str,
+        required=True,
+        help="Path to structured prompt JSON file"
+    )
+    return parser.parse_args()
 
-height = 1024
-width = 1024
 
-results = pipe(
-    prompt=prompt_short, num_inference_steps=50, guidance_scale=5,
-    height=height, width=width,
-)
-img = results.images[0]
+def main():
+    args = parse_args()
+    
+    # load json prompt
+    with open(args.structered_prompt_path, "r") as f:
+        prompt = json.load(f)
+    prompt = ujson.dumps(prompt, escape_forward_slashes=False)
+
+    # Load the FIBO pipeline
+    pipe = BriaFiboPipelineWithLoRA.from_pretrained(
+        args.pretrained_model_name_or_path,
+        torch_dtype=torch.bfloat16,
+    )
+    pipe.to("cuda")
+    pipe.load_lora_weights(args.lora_ckpt_path)
+
+    height = 1024
+    width = 1024
+
+    results = pipe(
+        prompt=prompt, num_inference_steps=50, guidance_scale=5,
+        height=height, width=width,
+    )
+    img = results.images[0]
+    
+    return img
+
+
+if __name__ == "__main__":
+    main()
