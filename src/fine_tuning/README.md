@@ -74,10 +74,10 @@ python src/fine_tuning/fine_tune_fibo.py \
 During training, checkpoints are saved in the `output_dir` as:
 ```
 output_dir/
-├── checkpoint_249/
-├── checkpoint_499/
-├── checkpoint_749/
-└── checkpoint_999/
+├── checkpoint_250/
+├── checkpoint_500/
+├── checkpoint_750/
+└── checkpoint_1000/
 ```
 
 Each checkpoint directory contains:
@@ -91,8 +91,7 @@ After training, you can generate images using your fine-tuned LoRA weights.
 ### Basic Generation Command
 
 ```bash
-cd /home/ubuntu/FIBO && \
-PYTHONPATH=/home/ubuntu/FIBO python src/fine_tuning/generate_with_lora.py \
+python src/fine_tuning/generate_with_lora.py \
   --pretrained_model_name_or_path briaai/FIBO \
   --lora_ckpt_path /home/ubuntu/exmaple_finetune_results/checkpoint_1000 \
   --structered_prompt_path /path/to/your/prompt.json \
