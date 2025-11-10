@@ -20,7 +20,7 @@ dataset_directory/
 
 The `metadata.csv` file should have two columns:
 - `file_name`: Name of the image file
-- `caption`: JSON-formatted structured prompt describing the image
+- `caption`: JSON-formatted structured prompt describing the image. Consider using constant phrasing (like a trigger word) or "freezing" JSON fields that should have common content across all images (e.g., "style_medium").
 
 Example `metadata.csv`:
 ```csv
@@ -94,7 +94,7 @@ After training, you can generate images using your fine-tuned LoRA weights.
 python src/fine_tuning/generate_with_lora.py \
   --pretrained_model_name_or_path briaai/FIBO \
   --lora_ckpt_path exmaple_finetune_results/checkpoint_final \
-  --structered_prompt_path /path/to/your/prompt.json \
+  --structered_prompt_path exxample_structured_prompt.json \
   --output_image_path generated_image.png \
   --seed 42
 ```
@@ -109,7 +109,7 @@ python src/fine_tuning/generate_with_lora.py \
 
 ### Prompt Format
 
-The `--structered_prompt_path` should point to a JSON file with a structured prompt in the same format as your training captions:
+The `--structered_prompt_path` argument should point to a JSON file containing a structured prompt. This prompt should use the same format as the captions you used for training. If your training set included certain fields with repeating content, or a recurring trigger word, make sure to also include those in your generation prompt for best results.
 
 ```json
 {
@@ -122,31 +122,6 @@ The `--structered_prompt_path` should point to a JSON file with a structured pro
 }
 ```
 
-### Example Generation
-
-1. Create a prompt file `my_prompt.json`:
-```json
-{
-  "short_description": "A friendly cartoon bear holding a red heart",
-  "objects": [{
-    "description": "A friendly cartoon bear",
-    "location": "center",
-    "action": "Holding a red heart"
-  }],
-  "background_setting": "Plain white background",
-  "artistic_style": "cartoonish, flat, friendly"
-}
-```
-
-2. Generate the image:
-```bash
-python src/fine_tuning/generate_with_lora.py \
-  --lora_ckpt_path example_finetune_results/checkpoint_final/ \
-  --structered_prompt_path my_prompt.json \
-  --output_image_path my_generated_image.png \
-  --seed 42
-```
-
 ## Tips
 
 1. **LoRA Rank**: Start with `--lora_rank 64` for most use cases. Increase to 128 for more complex adaptations, or decrease to 32 for simpler tasks.
@@ -154,6 +129,8 @@ python src/fine_tuning/generate_with_lora.py \
 2. **Training Steps**: Monitor your training loss. Typically 1000-2000 steps is sufficient, but this depends on your dataset size and complexity.
 
 3. **Batch Size**: With `--train_batch_size 1` and `--gradient_accumulation_steps 4`, the effective batch size is 4. Adjust based on your GPU memory.
+
+> **Note:** If your dataset contains images of multiple resolutions (i.e., images are not all the same size), you may encounter issues with `--train_batch_size` greater than 1. In such cases, set the batch size to 1 to avoid shape mismatches.
 
 4. **Memory Optimization**: Enable `--gradient_checkpointing 1` to reduce memory usage at the cost of slightly slower training.
 
