@@ -77,7 +77,7 @@ output_dir/
 ├── checkpoint_250/
 ├── checkpoint_500/
 ├── checkpoint_750/
-└── checkpoint_1000/
+└── checkpoint_final/
 ```
 
 Each checkpoint directory contains:
@@ -93,7 +93,7 @@ After training, you can generate images using your fine-tuned LoRA weights.
 ```bash
 python src/fine_tuning/generate_with_lora.py \
   --pretrained_model_name_or_path briaai/FIBO \
-  --lora_ckpt_path exmaple_finetune_results/checkpoint_1000 \
+  --lora_ckpt_path exmaple_finetune_results/checkpoint_final \
   --structered_prompt_path /path/to/your/prompt.json \
   --output_image_path generated_image.png \
   --seed 42
@@ -102,7 +102,7 @@ python src/fine_tuning/generate_with_lora.py \
 ### Parameters
 
 - `--pretrained_model_name_or_path`: Base FIBO model path (default: "briaai/FIBO")
-- `--lora_ckpt_path`: Path to the checkpoint directory containing LoRA weights (e.g., `checkpoint_1000`)
+- `--lora_ckpt_path`: Path to the checkpoint directory containing LoRA weights (e.g., `checkpoint_final`)
 - `--structered_prompt_path`: Path to a JSON file containing the structured prompt
 - `--output_image_path`: Where to save the generated image
 - `--seed`: Random seed for reproducibility (default: 42)
@@ -141,7 +141,7 @@ The `--structered_prompt_path` should point to a JSON file with a structured pro
 2. Generate the image:
 ```bash
 python src/fine_tuning/generate_with_lora.py \
-  --lora_ckpt_path exmaple_finetune_results/checkpoint_1000 \
+  --lora_ckpt_path example_finetune_results/checkpoint_final/ \
   --structered_prompt_path my_prompt.json \
   --output_image_path my_generated_image.png \
   --seed 42

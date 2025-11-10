@@ -1,7 +1,6 @@
 import os
 import torch
-import numpy as np
-from typing import List, Optional, Union
+from typing import List, Union
 
 from diffusers.optimization import get_scheduler
 from diffusers.utils import logging
@@ -14,9 +13,14 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 # Not really cosine but with decay
 def get_cosine_schedule_with_warmup_and_decay(
-    optimizer: Optimizer, num_warmup_steps: int, num_training_steps: int, num_cycles: float = 0.5, last_epoch: int = -1, constant_steps=-1,eps=1e-5
+    optimizer: Optimizer,
+    num_warmup_steps: int,
+    num_training_steps: int,
+    num_cycles: float = 0.5,
+    last_epoch: int = -1,
+    constant_steps=-1,
+    eps=1e-5,
 ) -> LambdaLR:
-
     """
     Create a schedule with a learning rate that decreases following the values of the cosine function between the
     initial lr set in the optimizer to 0, after a warmup period during which it increases linearly between 0 and the
@@ -40,54 +44,66 @@ def get_cosine_schedule_with_warmup_and_decay(
     Return:
         `torch.optim.lr_scheduler.LambdaLR` with the appropriate schedule.
     """
-    if constant_steps <=0:
-        constant_steps = num_training_steps-num_warmup_steps
+    if constant_steps <= 0:
+        constant_steps = num_training_steps - num_warmup_steps
 
     def lr_lambda(current_step):
         # Accelerate sends current_step*num_processes
         if current_step < num_warmup_steps:
             return float(current_step) / float(max(1, num_warmup_steps))
-        elif current_step<num_warmup_steps+constant_steps:
+        elif current_step < num_warmup_steps + constant_steps:
             return 1
-        
+
         # print(f'Inside LR: num_training_steps:{num_training_steps}, current_step:{current_step}, num_warmup_steps: {num_warmup_steps}, constant_steps: {constant_steps}')
-        return max(eps, float(num_training_steps - current_step) / float(max(1, num_training_steps - num_warmup_steps - constant_steps)))
-    
+        return max(
+            eps,
+            float(num_training_steps - current_step)
+            / float(max(1, num_training_steps - num_warmup_steps - constant_steps)),
+        )
+
     return LambdaLR(optimizer, lr_lambda, last_epoch)
 
+
 def get_lr_scheduler(
-        name,
-        optimizer,
-        num_warmup_steps,
-        num_training_steps,
-        constant_steps):
-    if name!='constant_with_warmup_cosine_decay':
-        return get_scheduler(   
+    name, optimizer, num_warmup_steps, num_training_steps, constant_steps
+):
+    if name != "constant_with_warmup_cosine_decay":
+        return get_scheduler(
             name=name,
             optimizer=optimizer,
             num_warmup_steps=num_warmup_steps,
-            num_training_steps=num_training_steps)
+            num_training_steps=num_training_steps,
+        )
 
     # Usign custom warmup+cnstant+decay scheduler
-    return get_cosine_schedule_with_warmup_and_decay(optimizer=optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps, constant_steps=constant_steps)
+    return get_cosine_schedule_with_warmup_and_decay(
+        optimizer=optimizer,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps,
+        constant_steps=constant_steps,
+    )
 
 
 @torch.no_grad()
 def get_smollm_prompt_embeds(
-    tokenizer: AutoTokenizer ,
+    tokenizer: AutoTokenizer,
     text_encoder: AutoModelForCausalLM,
     prompts: Union[str, List[str]] = None,
     max_sequence_length: int = 2048,
-    ):
-    
+):
     prompts = [prompts] if isinstance(prompts, str) else prompts
-    bot_token_id = 128000 # same as Llama
-    
-    if prompts[0]=="":
+    bot_token_id = 128000  # same as Llama
+
+    if prompts[0] == "":
         bs = len(prompts)
-        assert all(p=="" for p in prompts)
-        text_input_ids = torch.zeros([bs,1],dtype=torch.int64,device=text_encoder.device)+ bot_token_id
-        attention_mask = torch.ones([bs,1],dtype=torch.int64,device=text_encoder.device)
+        assert all(p == "" for p in prompts)
+        text_input_ids = (
+            torch.zeros([bs, 1], dtype=torch.int64, device=text_encoder.device)
+            + bot_token_id
+        )
+        attention_mask = torch.ones(
+            [bs, 1], dtype=torch.int64, device=text_encoder.device
+        )
     else:
         text_inputs = tokenizer(
             prompts,
@@ -100,34 +116,39 @@ def get_smollm_prompt_embeds(
         text_input_ids = text_inputs.input_ids.to(text_encoder.device)
         attention_mask = text_inputs.attention_mask.to(text_encoder.device)
 
-    if len(prompts)==1:
-        assert (attention_mask==1).all()
+    if len(prompts) == 1:
+        assert (attention_mask == 1).all()
 
     hidden_states = text_encoder(
-                text_input_ids,
-                attention_mask=attention_mask,
-                output_hidden_states=True).hidden_states
+        text_input_ids, attention_mask=attention_mask, output_hidden_states=True
+    ).hidden_states
     # We need a 4096 dim so since we have 2048 we take last 2 layers
-    prompt_embeds = torch.concat([hidden_states[-1],hidden_states[-2]],dim=-1)
-    
+    prompt_embeds = torch.concat([hidden_states[-1], hidden_states[-2]], dim=-1)
+
     return prompt_embeds, hidden_states, attention_mask
 
-    
+
 def pad_embedding(prompt_embeds, max_tokens):
     # Padds a tensor which is not masked, i.e. the "initial" tensor mask is 1's
     # We extend the tokens to max tokens and provide a mask to differentiate the masked areas
-    b,seq_len,dim = prompt_embeds.shape
-    padding = torch.zeros((b,max_tokens-seq_len,dim),dtype=prompt_embeds.dtype,device=prompt_embeds.device)
-    attentions_mask = torch.zeros((b,max_tokens),dtype=prompt_embeds.dtype,device=prompt_embeds.device)
-    attentions_mask[:,:seq_len]=1 # original tensor is not masked
-    prompt_embeds = torch.concat([prompt_embeds,padding],dim=1)
-    
+    b, seq_len, dim = prompt_embeds.shape
+    padding = torch.zeros(
+        (b, max_tokens - seq_len, dim),
+        dtype=prompt_embeds.dtype,
+        device=prompt_embeds.device,
+    )
+    attentions_mask = torch.zeros(
+        (b, max_tokens), dtype=prompt_embeds.dtype, device=prompt_embeds.device
+    )
+    attentions_mask[:, :seq_len] = 1  # original tensor is not masked
+    prompt_embeds = torch.concat([prompt_embeds, padding], dim=1)
+
     return prompt_embeds, attentions_mask
 
 
-def load_checkpoint(accelerator,args):
+def load_checkpoint(accelerator, args):
     # Load from local checkpoint that sage maker synced to s3 prefix
-    global_step=0
+    global_step = 0
     if args.resume_from_checkpoint != "latest":
         path = os.path.basename(args.resume_from_checkpoint)
     else:
@@ -144,15 +165,14 @@ def load_checkpoint(accelerator,args):
         args.resume_from_checkpoint = None
     else:
         accelerator.print(f"Resuming from checkpoint {path}")
-        accelerator.load_state(
-            os.path.join(args.output_dir, path), map_location="cpu"
-        )
+        accelerator.load_state(os.path.join(args.output_dir, path), map_location="cpu")
         global_step = int(path.split("_")[-1])
-    
+
     return global_step
 
 
-#Kfir's timestep sampler
+# Kfir's timestep sampler
+
 
 class TimestepSampler:
     """Base class for timestep samplers.
@@ -161,7 +181,12 @@ class TimestepSampler:
     They should implement both sample() and sample_for() methods.
     """
 
-    def sample(self, batch_size: int, seq_length: int | None = None, device: torch.device = None) -> torch.Tensor:
+    def sample(
+        self,
+        batch_size: int,
+        seq_length: int | None = None,
+        device: torch.device = None,
+    ) -> torch.Tensor:
         """Sample timesteps for a batch.
 
         Args:
@@ -193,8 +218,16 @@ class UniformTimestepSampler(TimestepSampler):
         self.min_value = min_value
         self.max_value = max_value
 
-    def sample(self, batch_size: int, seq_length: int | None = None, device: torch.device = None) -> torch.Tensor:  # noqa: ARG002
-        return torch.rand(batch_size, device=device) * (self.max_value - self.min_value) + self.min_value
+    def sample(
+        self,
+        batch_size: int,
+        seq_length: int | None = None,
+        device: torch.device = None,
+    ) -> torch.Tensor:  # noqa: ARG002
+        return (
+            torch.rand(batch_size, device=device) * (self.max_value - self.min_value)
+            + self.min_value
+        )
 
     def sample_for(self, batch: torch.Tensor) -> torch.Tensor:
         if batch.ndim != 3:
@@ -213,7 +246,9 @@ class ShiftedLogitNormalTimestepSampler:
     def __init__(self, std: float = 1.0):
         self.std = std
 
-    def sample(self, batch_size: int, seq_length: int, device: torch.device = None) -> torch.Tensor:
+    def sample(
+        self, batch_size: int, seq_length: int, device: torch.device = None
+    ) -> torch.Tensor:
         """Sample timesteps for a batch from a shifted logit-normal distribution.
 
         Args:
@@ -271,13 +306,16 @@ class ShiftedStretchedLogitNormalTimestepSampler:
     Samples timesteps from a stretched logit-normal distribution,
     where the shift is determined by the sequence length.
     """
+
     def __init__(self, std: float = 1.0, uniform_prob: float = 0.1):
         self.std = std
         self.shifted_logit_normal_sampler = ShiftedLogitNormalTimestepSampler(std=std)
         self.uniform_sampler = UniformTimestepSampler()
         self.uniform_prob = uniform_prob
 
-    def sample(self, batch_size: int, seq_length: int, device: torch.device = None) -> torch.Tensor:
+    def sample(
+        self, batch_size: int, seq_length: int, device: torch.device = None
+    ) -> torch.Tensor:
         # Determine which sampler to use for each batch element
         should_use_uniform = torch.rand(batch_size, device=device) < self.uniform_prob
 
@@ -316,7 +354,9 @@ class ShiftedStretchedLogitNormalTimestepSampler:
             raise ValueError(f"Batch should have 3 dimensions, got {batch.ndim}")
 
         batch_size, seq_length, _ = batch.shape
-        return self.sample(batch_size=batch_size, seq_length=seq_length, device=batch.device)
+        return self.sample(
+            batch_size=batch_size, seq_length=seq_length, device=batch.device
+        )
 
 
 def init_training_scheduler():
@@ -324,9 +364,10 @@ def init_training_scheduler():
 
 
 def create_attention_matrix(attention_mask):
-    attention_matrix = torch.einsum('bi,bj->bij', attention_mask, attention_mask)
+    attention_matrix = torch.einsum("bi,bj->bij", attention_mask, attention_mask)
 
-        
     # convert to 0 - keep, -inf ignore
-    attention_matrix = torch.where(attention_matrix==1, 0.0, -torch.inf) # Apply -inf to ignored tokens for nulling softmax score
+    attention_matrix = torch.where(
+        attention_matrix == 1, 0.0, -torch.inf
+    )  # Apply -inf to ignored tokens for nulling softmax score
     return attention_matrix
