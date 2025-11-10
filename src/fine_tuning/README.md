@@ -41,7 +41,7 @@ PYTHONPATH=/home/ubuntu/FIBO python src/fine_tuning/fine_tune_fibo.py \
   --checkpointing_steps 250 \
   --max_train_steps 1010 \
   --output_dir /home/ubuntu/exmaple_finetune_results \
-  --dataset_name /home/ubuntu/FIBO/src/fine_tuning/exmaple_finetune_data \
+  --dataset_name briaai/fine_tune_example \
   --lora_rank 64 \
   --train_batch_size 1 \
   --gradient_accumulation_steps 4 \

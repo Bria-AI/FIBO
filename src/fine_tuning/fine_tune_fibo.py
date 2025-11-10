@@ -30,8 +30,7 @@ from tqdm.auto import tqdm
 import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from src.fine_tuning.bria_utils import (
-    CudaTimerContext,
+from src.fine_tuning.fine_tune_utils import (
     create_attention_matrix,
     get_lr_scheduler,
     get_smollm_prompt_embeds,
@@ -39,7 +38,7 @@ from src.fine_tuning.bria_utils import (
     load_checkpoint,
     pad_embedding,
 )
-from src.fine_tuning.lora_utils import cast_training_params, set_lora_training
+from src.fine_tuning.fine_tune_utils import cast_training_params, set_lora_training
 
 # Set Logger
 logger = get_logger(__name__, log_level="INFO")
@@ -487,7 +486,7 @@ def collate_fn(examples):
     return pixel_values, captions, target_width, target_height            
 
         
-def get_accelerator(args, weight_dtype):
+def get_accelerator(args):
     logging_dir = os.path.join(args.output_dir, args.logging_dir)
     accelerator_project_config = ProjectConfiguration(
         project_dir=args.output_dir, logging_dir=logging_dir
@@ -542,7 +541,7 @@ def main(args):
         weight_dtype = torch.bfloat16
 
     # Set accelerator with fsdp/data-parallel
-    accelerator = get_accelerator(args, weight_dtype)
+    accelerator = get_accelerator(args)
 
     WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
     TOTAL_BATCH_NO_ACC = args.train_batch_size
@@ -564,7 +563,7 @@ def main(args):
         subfolder="transformer",
         low_cpu_mem_usage=False,     # critical: avoid meta tensors
         device_map=None,             # keep on CPU
-        torch_dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16)
+        dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16)
     )
     transformer = transformer.to(accelerator.device).eval()
     total_num_layers = transformer.config['num_layers'] + transformer.config['num_single_layers']
@@ -590,13 +589,13 @@ def main(args):
     tokenizer = AutoTokenizer.from_pretrained(args. pretrained_model_name_or_path, subfolder="tokenizer")
     text_encoder = AutoModelForCausalLM.from_pretrained(
         args. pretrained_model_name_or_path, subfolder="text_encoder",
-        torch_dtype=weight_dtype
+        dtype=weight_dtype
     ).to(accelerator.device).eval().requires_grad_(False) 
         
     vae_model = AutoencoderKLWan.from_pretrained(args. pretrained_model_name_or_path, subfolder="vae")
     vae_model = vae_model.to(accelerator.device).requires_grad_(False)
     # Read vae config
-    vae_config_path = Path(__file__).parent / 'vae_wan.json.out'
+    vae_config_path = Path(__file__).parent / 'vae_config.json'
     with open(vae_config_path) as f:
         vae_config = json.load(f)
     vae_config["shift_factor"] = torch.tensor(vae_model.config["latents_mean"]).reshape((1,48,1,1)).to(device=accelerator.device)
@@ -757,10 +756,7 @@ def main(args):
         latents = latents[:,:,0]
         
         # Get Captions
-        text_encoder_time = []
-        with CudaTimerContext(text_encoder_time):
-            encoder_hidden_states, text_encoder_layers, prompt_attention_mask = get_prompt_embedds(captions)
-        text_encoder_time = text_encoder_time[0]
+        encoder_hidden_states, text_encoder_layers, prompt_attention_mask = get_prompt_embedds(captions)
         text_encoder_layers = list(text_encoder_layers)
         #make sure that the number of text encoder layers is equal to the total number of layers in the transformer
         assert len(text_encoder_layers) <= total_num_layers
@@ -830,49 +826,40 @@ def main(args):
             attention_mask = torch.cat([prompt_attention_mask, latent_attention_mask],dim=1)
 
             # Prepare attention_matrix
-            create_mask_time = []
-            with CudaTimerContext(create_mask_time):
-                attention_mask = create_attention_matrix(attention_mask) # batch, seq => batch, seq, seq            
-            create_mask_time = create_mask_time[0]
+            attention_mask = create_attention_matrix(attention_mask) # batch, seq => batch, seq, seq
             
             attention_mask = attention_mask.unsqueeze(dim=1) # for brodoacast to attention heads
             joint_attention_kwargs={'attention_mask':attention_mask}
 
-            forward_time=[]
-            with CudaTimerContext(forward_time):
-                model_pred = transformer(
-                        hidden_states=patched_noisy_latents,
-                        timestep=timesteps,
-                        encoder_hidden_states=encoder_hidden_states, #[batch,128,height/patch*width/patch]
-                        text_encoder_layers=text_encoder_layers,
-                        txt_ids=text_ids, 
-                        img_ids=patched_latent_image_ids, 
-                        return_dict=False,
-                        joint_attention_kwargs=joint_attention_kwargs
-                    )[0]
+            model_pred = transformer(
+                    hidden_states=patched_noisy_latents,
+                    timestep=timesteps,
+                    encoder_hidden_states=encoder_hidden_states, #[batch,128,height/patch*width/patch]
+                    text_encoder_layers=text_encoder_layers,
+                    txt_ids=text_ids, 
+                    img_ids=patched_latent_image_ids, 
+                    return_dict=False,
+                    joint_attention_kwargs=joint_attention_kwargs
+                )[0]
 
-                # Un-Patchify latent  (4 -> 1)
-                model_pred = BriaFiboPipeline._unpack_latents_no_patch(model_pred, height, width, vae_scale_factor)                
-                loss_coeff = WORLD_SIZE / TOTAL_BATCH_NO_ACC
-                
-                denoising_loss = torch.mean(
-                    ((model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                    1,
-                ).sum()
-                denoising_loss = loss_coeff * denoising_loss 
+            # Un-Patchify latent  (4 -> 1)
+            model_pred = BriaFiboPipeline._unpack_latents_no_patch(model_pred, height, width, vae_scale_factor)                
+            loss_coeff = WORLD_SIZE / TOTAL_BATCH_NO_ACC
+            
+            denoising_loss = torch.mean(
+                ((model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                1,
+            ).sum()
+            denoising_loss = loss_coeff * denoising_loss 
 
-                loss = denoising_loss
-            forward_time = forward_time[0]
+            loss = denoising_loss
 
             train_loss += (
                 accelerator.gather(loss.detach()).mean().item() / args.gradient_accumulation_steps
             )
 
             # Backpropagate
-            backward_time = []
-            with CudaTimerContext(backward_time):
-                accelerator.backward(loss)
-            backward_time = backward_time[0]
+            accelerator.backward(loss)
 
             if accelerator.sync_gradients:
                 accelerator.clip_grad_norm_(

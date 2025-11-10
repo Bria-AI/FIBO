@@ -7,6 +7,18 @@ from diffusers.loaders import FluxLoraLoaderMixin
 import torch
 import ujson
 
+RESOLUTIONS_WH = [
+    "832 1248",
+    "896 1152",
+    "960 1088",
+    "1024 1024",
+    "1088 960",
+    "1152 896",
+    "1216 832",
+    "1280 800",
+    "1344 768",
+]
+
 
 class BriaFiboPipelineWithLoRA(FluxLoraLoaderMixin, BriaFiboPipeline):
     r"""
@@ -33,6 +45,25 @@ class BriaFiboPipelineWithLoRA(FluxLoraLoaderMixin, BriaFiboPipeline):
         pipe.load_lora_weights("path/to/lora/weights")
         ```
     """
+
+
+def parse_resolution(raw_value: str) -> tuple[int, int]:
+    """Parse resolution in the form 'WIDTH HEIGHT'."""
+    normalised = raw_value.replace(",", " ").replace("x", " ")
+    parts = [part for part in normalised.split() if part]
+    if len(parts) != 2:
+        raise SystemExit("Resolution must contain exactly two integers, e.g. '1024 1024'.")
+
+    try:
+        width, height = (int(parts[0]), int(parts[1]))
+    except ValueError as exc:
+        raise SystemExit("Resolution values must be integers.") from exc
+
+    if width <= 0 or height <= 0:
+        raise SystemExit("Resolution values must be positive.")
+
+    return width, height
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate images with LoRA weights")
@@ -66,6 +97,11 @@ def parse_args():
         default=42,
         help="Seed for the random number generator (default: 42)"
     )
+    parser.add_argument(
+        "--resolution",
+        default="1024 1024",
+        help="Output resolution as 'WIDTH HEIGHT'.",
+    )
     return parser.parse_args()
 
 
@@ -85,8 +121,9 @@ def main():
     pipe.to("cuda")
     pipe.load_lora_weights(args.lora_ckpt_path)
 
-    height = 1024
-    width = 1024
+    width, height = parse_resolution(args.resolution)
+    if f"{width} {height}" not in RESOLUTIONS_WH:
+        print(f"Note: {width}x{height} is outside the preset resolutions used by the original demo.")
     
     generator = torch.Generator(device="cuda").manual_seed(args.seed)
     results = pipe(
