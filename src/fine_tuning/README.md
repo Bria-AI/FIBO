@@ -39,7 +39,7 @@ image2.jpg,"{""short_description"":""Another bear..."",""objects"":[...]}"
 python src/fine_tuning/fine_tune_fibo.py \
   --checkpointing_steps 250 \
   --max_train_steps 1010 \
-  --output_dir /home/ubuntu/exmaple_finetune_results \
+  --output_dir exmaple_finetune_results \
   --dataset_name briaai/fine_tune_example \
   --lora_rank 64 \
   --train_batch_size 1 \
@@ -93,7 +93,7 @@ After training, you can generate images using your fine-tuned LoRA weights.
 ```bash
 python src/fine_tuning/generate_with_lora.py \
   --pretrained_model_name_or_path briaai/FIBO \
-  --lora_ckpt_path /home/ubuntu/exmaple_finetune_results/checkpoint_1000 \
+  --lora_ckpt_path exmaple_finetune_results/checkpoint_1000 \
   --structered_prompt_path /path/to/your/prompt.json \
   --output_image_path generated_image.png \
   --seed 42
@@ -140,9 +140,8 @@ The `--structered_prompt_path` should point to a JSON file with a structured pro
 
 2. Generate the image:
 ```bash
-cd /home/ubuntu/FIBO && \
-PYTHONPATH=/home/ubuntu/FIBO python src/fine_tuning/generate_with_lora.py \
-  --lora_ckpt_path /home/ubuntu/exmaple_finetune_results/checkpoint_1000 \
+python src/fine_tuning/generate_with_lora.py \
+  --lora_ckpt_path exmaple_finetune_results/checkpoint_1000 \
   --structered_prompt_path my_prompt.json \
   --output_image_path my_generated_image.png \
   --seed 42
