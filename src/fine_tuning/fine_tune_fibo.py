@@ -562,7 +562,7 @@ def main(args):
         args. pretrained_model_name_or_path,
         subfolder="transformer",
         low_cpu_mem_usage=False,     # critical: avoid meta tensors
-        weight_dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16)
+        weight_dtype=weight_dtype
     )
     transformer = transformer.to(accelerator.device).eval()
     total_num_layers = transformer.config['num_layers'] + transformer.config['num_single_layers']
