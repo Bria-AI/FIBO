@@ -36,8 +36,7 @@ image2.jpg,"{""short_description"":""Another bear..."",""objects"":[...]}"
 ### Basic Training Command
 
 ```bash
-cd /home/ubuntu/FIBO && \
-PYTHONPATH=/home/ubuntu/FIBO python src/fine_tuning/fine_tune_fibo.py \
+python src/fine_tuning/fine_tune_fibo.py \
   --checkpointing_steps 250 \
   --max_train_steps 1010 \
   --output_dir /home/ubuntu/exmaple_finetune_results \

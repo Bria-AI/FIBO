@@ -518,11 +518,8 @@ def main(args):
     try:
         cuda_version = torch.version.cuda
         print(f"PyTorch CUDA Version: {cuda_version}")
-        result_nvcc = subprocess.run(['nvcc', '--version'], capture_output=True, text=True, check=True)
-        print("CUDA Toolkit version (from nvcc):")
-        print(result_nvcc.stdout.split('release ')[1].split(',')[0])
     except Exception as e:
-        raise Exception("No nvcc found.")
+        raise Exception("CUDA toolkit (nvcc) not found.")
 
     args = parse_args()
     
