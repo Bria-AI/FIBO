@@ -1,4 +1,5 @@
 import os
+import abc
 from typing import List, Union
 
 from diffusers.loaders.lora_pipeline import FluxLoraLoaderMixin
@@ -239,9 +240,7 @@ def load_checkpoint(accelerator,args):
     return global_step
 
 
-#Kfir's timestep sampler
-
-class TimestepSampler:
+class TimestepSampler(abc.ABC):
     """Base class for timestep samplers.
 
     Timestep samplers are used to sample timesteps for diffusion models.

@@ -164,6 +164,24 @@ PYTHONPATH=/home/ubuntu/FIBO python src/fine_tuning/generate_with_lora.py \
 
 6. **Multi-GPU Training**: The script supports distributed training. Use `accelerate launch` for multi-GPU setups.
 
+## Environment Variables for Distributed Training
+
+For optimal performance in multi-GPU/distributed training setups (especially on AWS with EFA), you may want to set the following environment variables before running the training script:
+
+```bash
+export NCCL_DEBUG=WARN
+export FI_PROVIDER=efa
+export FI_EFA_USE_DEVICE_RDMA=1
+export NCCL_MIN_NCHANNELS=8
+export NCCL_NET_GDR_LEVEL=PHB
+export NCCL_P2P_LEVEL=NVL
+export CUDA_DEVICE_MAX_CONNECTIONS=1
+export CUDA_LAUNCH_BLOCKING=0
+export NCCL_IB_DISABLE=0
+```
+
+These settings optimize NCCL communication for AWS EFA (Elastic Fabric Adapter) and improve multi-GPU training performance. You can add these to your shell profile or set them before running the training command.
+
 ## Troubleshooting
 
 - **Invalid JSON captions**: Ensure all captions in `metadata.csv` are valid JSON. The script will raise an error with details if validation fails.

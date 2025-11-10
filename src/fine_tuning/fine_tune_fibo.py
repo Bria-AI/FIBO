@@ -562,8 +562,7 @@ def main(args):
         args. pretrained_model_name_or_path,
         subfolder="transformer",
         low_cpu_mem_usage=False,     # critical: avoid meta tensors
-        device_map=None,             # keep on CPU
-        dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16)
+        weight_dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16)
     )
     transformer = transformer.to(accelerator.device).eval()
     total_num_layers = transformer.config['num_layers'] + transformer.config['num_single_layers']
@@ -910,15 +909,5 @@ def main(args):
 
 
 if __name__ == "__main__":
-    os.environ["NCCL_DEBUG"] = "WARN"
-    os.environ["FI_PROVIDER"] = "efa"
-    os.environ["FI_EFA_USE_DEVICE_RDMA"] = "1"
-    os.environ["NCCL_MIN_NCHANNELS"] = "8"
-    os.environ["NCCL_NET_GDR_LEVEL"] = "PHB"
-    os.environ["NCCL_P2P_LEVEL"] = "NVL"
-    os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "0"
-    os.environ["NCCL_IB_DISABLE"] = "0"
-
     args = parse_args()
     main(args)
