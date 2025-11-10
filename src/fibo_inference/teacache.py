@@ -10,7 +10,6 @@ from diffusers.utils import (
     scale_lora_layers,
     unscale_lora_layers,
 )
-from .transformer_fibo import BriaFiboTransformer2DModel
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
