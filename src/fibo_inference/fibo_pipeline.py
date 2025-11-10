@@ -835,3 +835,67 @@ class BriaFiboPipeline(DiffusionPipeline):
 
         if max_sequence_length is not None and max_sequence_length > 3000:
             raise ValueError(f"`max_sequence_length` cannot be greater than 3000 but is {max_sequence_length}")
+
+    def enable_teacache(self, num_inference_steps: int, rel_l1_thresh: float = 1.0):
+        """
+        Enable TeaCache for faster inference by caching and reusing intermediate computations.
+        
+        TeaCache monitors the change in hidden states between denoising steps and reuses
+        cached computations when changes are below a threshold, significantly speeding up
+        inference with minimal quality loss.
+        
+        Args:
+            num_inference_steps (int): Total number of denoising steps that will be used.
+            rel_l1_thresh (float, optional): Threshold for cache reuse decision. 
+                Higher values result in more aggressive caching (faster, potentially lower quality).
+                Lower values result in more conservative caching (slower, better quality).
+                Defaults to 1.0. Recommended range: 0.6-1.0.
+        
+        Example:
+            >>> pipe.enable_teacache(num_inference_steps=50, rel_l1_thresh=1.0)
+            >>> result = pipe(prompt="...", num_inference_steps=50)
+        
+        Note:
+            Make sure the num_inference_steps matches what you'll use in the __call__ method.
+        """
+        from .teacache import teacache_forward
+        
+        # Store the original forward method if not already stored
+        if not hasattr(self.transformer.__class__, '_original_forward'):
+            self.transformer.__class__._original_forward = self.transformer.__class__.forward
+        
+        # Replace forward with teacache version
+        self.transformer.__class__.forward = teacache_forward
+        
+        # Initialize TeaCache state variables
+        self.transformer.__class__.enable_teacache = True
+        self.transformer.__class__.num_steps = num_inference_steps
+        self.transformer.__class__.rel_l1_thresh = rel_l1_thresh
+        self.transformer.__class__.cnt = 0
+        self.transformer.__class__.accumulated_rel_l1_distance = 0.0
+        self.transformer.__class__.previous_modulated_input = None
+        self.transformer.__class__.previous_residual = None
+        
+        logger.info(f"TeaCache enabled: num_steps={num_inference_steps}, threshold={rel_l1_thresh}")
+
+    def disable_teacache(self):
+        """
+        Disable TeaCache and restore the original forward method.
+        
+        This cleans up TeaCache state and restores normal inference behavior.
+        
+        Example:
+            >>> pipe.disable_teacache()
+        """
+        # Restore original forward method
+        if hasattr(self.transformer.__class__, '_original_forward'):
+            self.transformer.__class__.forward = self.transformer.__class__._original_forward
+        
+        # Clean up TeaCache state
+        self.transformer.__class__.enable_teacache = False
+        self.transformer.__class__.cnt = 0
+        self.transformer.__class__.accumulated_rel_l1_distance = 0.0
+        self.transformer.__class__.previous_modulated_input = None
+        self.transformer.__class__.previous_residual = None
+        
+        logger.info("TeaCache disabled")

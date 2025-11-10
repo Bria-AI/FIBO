@@ -225,6 +225,25 @@ python generate.py --image-path assets/original.png --prompt "Make futuristic" -
   </tr>
 </table>
 
+<h3> Faster Inference with TeaCache</h3>
+<p>Enable TeaCache to speed up generation by <b>3x</b> with minimal quality loss:</p>
+
+```bash
+python generate.py --prompt "your prompt" --enable-teacache
+```
+
+<p>Adjust the threshold for speed/quality tradeoff (default 1.0, recommended 0.6-1.0):</p>
+
+```bash
+python generate.py --prompt "your prompt" --enable-teacache --teacache-threshold 0.8
+```
+
+<table align="center">
+  <tr>
+    <td><img src="examples/outputs/generated_without_teacache.png" alt="Without TeaCache" width="100%"/><figcaption>Without TeaCache (baseline)</figcaption></td>
+    <td><img src="examples/outputs/generated_teacache.png" alt="With TeaCache" width="100%"/><figcaption>With TeaCache (3x faster)</figcaption></td>
+  </tr>
+</table>
 
 <p>see the examples in the <a href="examples">examples</a> directory for more details.</p>
 
