@@ -39,6 +39,14 @@ def main():
         print(f"Error: default task (local) failed with exit code {ret}")
         sys.exit(1)
 
+    print("Running TeaCache test...")
+    ret = os.system(
+        "python generate.py --prompt 'a dog playing in the park' --seed 1 --output tests/outputs/generate_teacache.png --model-mode local --enable-teacache"
+    )
+    if ret != 0:
+        print(f"Error: TeaCache test failed with exit code {ret}")
+        sys.exit(1)
+
     print("Running gemini mode tests...")
     print("Running generate task...")
     ret = os.system(
