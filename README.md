@@ -98,7 +98,7 @@
 </ul>
 <h2> News</h2>
 <ul>
-  <li>2025-11-11: Fine-tuning code is now available [here](src/fine_tuning/README.md)! 🎉</li>
+  <li>2025-11-11: Fine-tuning code is now available <a href="src/fine_tuning/README.md">here</a> 🎉</li>
   <li>2025-11-10: Add support for TeaCache to speed up generation by 3x with minimal quality loss 🏎️</li>
 </ul>
 
