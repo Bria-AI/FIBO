@@ -46,6 +46,15 @@
       src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white&style=for-the-badge"
     />
   </a>
+   &nbsp;
+
+  <!-- Bria Paper -->
+  <a href="https://arxiv.org/abs/2511.06876" target="_blank">
+    <img
+      alt="Tech Paper"
+      src="https://img.shields.io/badge/Tech%20Paper-lightgrey?logo=arxiv&logoColor=red&style=for-the-badge"
+    />
+  </a>
 </p>
 <p align="center">
   <img src="assets/car.001.jpeg" width="1024"/>
