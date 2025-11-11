@@ -312,4 +312,21 @@ python generate.py --prompt "your prompt" --enable-teacache --teacache-threshold
 
 <p>If you're passionate about fundamental research, we're hiring full-time employees (FTEs) and research interns. Don't wait - reach out to us at <a href="mailto:hr@bria.ai">hr@bria.ai</a></p>
 
+## Citation
+
+We kindly encourage citation of our work if you find it useful.
+
+```bibtex
+@misc{gutflaish2025generating,
+  title         = {Generating an Image From 1,000 Words: Enhancing Text-to-Image With Structured Captions},
+  author        = {Gutflaish, Eyal and Kachlon, Eliran and Zisman, Hezi and Hacham, Tal and Sarid, Nimrod and Visheratin, Alexander and Huberman, Saar and Davidi, Gal and Bukchin, Guy and Goldberg, Kfir and Mokady, Ron},
+  year          = {2025},
+  eprint        = {2511.06876},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  doi           = {10.48550/arXiv.2511.06876},
+  url           = {https://arxiv.org/abs/2511.06876}
+}
+```
+
 <p align="center"><b>🤗 <a href="https://huggingface.co/briaai/FIBO " target="_blank">Like FIBO on Hugging Face</a> to support responsible generative AI!</b></p>
