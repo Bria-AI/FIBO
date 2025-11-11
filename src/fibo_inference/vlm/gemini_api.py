@@ -247,12 +247,14 @@ json_schema_full = """1.  `short_description`: (String) A concise summary of the
     * `font`: (String) E.g., "realistic", "cartoonish", "minimalist", "serif typeface".
     * `appearance_details`: (String) Any other notable visual details."""
 
+
 @cache
 def get_instructions(mode: str) -> Tuple[str, str]:
-
     system_prompts = {}
 
-    system_prompts["Caption"] = f"""You are a meticulous and perceptive Visual Art Director working for a leading Generative AI company. Your expertise lies in analyzing images and extracting detailed, structured information.
+    system_prompts[
+        "Caption"
+    ] = f"""You are a meticulous and perceptive Visual Art Director working for a leading Generative AI company. Your expertise lies in analyzing images and extracting detailed, structured information.
 Your primary task is to analyze provided images and generate a comprehensive JSON object describing them. Adhere strictly to the following structure and guidelines:
 The output MUST be ONLY a valid JSON object. Do not include any text before or after the JSON object (e.g., no "Here is the JSON:", no explanations, no apologies).
 IMPORTANT: When describing human body parts, positions, or actions, always describe them from the PERSON'S OWN PERSPECTIVE, not from the observer's viewpoint. For example, if a person's left arm is raised (from their own perspective), describe it as "left arm" even if it appears on the right side of the image from the viewer's perspective.
@@ -262,8 +264,10 @@ The JSON object must contain the following keys precisely:
 
 Ensure the information within the JSON is accurate, detailed where specified, and avoids redundancy between fields.
 """
-        
-    system_prompts["Generate"] = f"""You are a visionary and creative Visual Art Director at a leading Generative AI company.
+
+    system_prompts[
+        "Generate"
+    ] = f"""You are a visionary and creative Visual Art Director at a leading Generative AI company.
 
 Your expertise lies in taking a user's textual concept and transforming it into a rich, detailed, and aesthetically compelling visual scene.
 
@@ -285,7 +289,9 @@ The JSON object must contain the following keys precisely:
 
 Ensure the information within the JSON is detailed, creative, internally consistent, and avoids redundancy between fields."""
 
-    system_prompts["RefineA"] = f"""You are a Meticulous Visual Editor and Senior Art Director at a leading Generative AI company.
+    system_prompts[
+        "RefineA"
+    ] = f"""You are a Meticulous Visual Editor and Senior Art Director at a leading Generative AI company.
 
 Your expertise is in refining and modifying existing visual concepts based on precise feedback.
 
@@ -331,7 +337,9 @@ The JSON object must contain the following keys precisely:
 
 {json_schema_full}"""
 
-    system_prompts["InspireA"] = f"""You are a highly skilled Creative Director for Visual Adaptation at a leading Generative AI company.
+    system_prompts[
+        "InspireA"
+    ] = f"""You are a highly skilled Creative Director for Visual Adaptation at a leading Generative AI company.
 
 Your expertise lies in using an existing image as a visual reference to create entirely new scenes. You can deconstruct a reference image to understand its subject, pose, and style, and then reimagine it in a new context based on textual instructions.
 
@@ -355,10 +363,11 @@ The JSON object must contain the following keys precisely:
 
     system_prompts["InspireB"] = system_prompts["Caption"]
 
-
     final_prompts = {}
 
-    final_prompts["Generate"] = "Generate a detailed JSON object, adhering to the expected schema, for an imagined scene based on the following request: {user_prompt}."
+    final_prompts["Generate"] = (
+        "Generate a detailed JSON object, adhering to the expected schema, for an imagined scene based on the following request: {user_prompt}."
+    )
 
     final_prompts["RefineA"] = """
         [EXISTING JSON]:
@@ -390,7 +399,9 @@ The JSON object must contain the following keys precisely:
         Use the provided image as a visual reference only. Analyze its key elements (like the subject and pose) and then generate a new, detailed JSON object for the scene described in the instructions above. Do not describe the reference image itself; describe the new scene. Follow all of your system rules.
         """
 
-    final_prompts["Caption"] = "Analyze the provided image and generate the detailed JSON object as specified in your instructions."
+    final_prompts["Caption"] = (
+        "Analyze the provided image and generate the detailed JSON object as specified in your instructions."
+    )
     final_prompts["InspireB"] = final_prompts["Caption"]
 
     return system_prompts.get(mode, ""), final_prompts.get(mode, "")
@@ -421,7 +432,7 @@ def validate_structured_prompt_str(structured_prompt_str: str) -> str:
 
 
 def prepare_clean_caption(json_dump: dict) -> str:
-    # filter empty values recursivly (i.e. None, "", {}, [], float("nan"))
+    # filter empty values recursively (i.e. None, "", {}, [], float("nan"))
     clean_caption_dict = remap(json_dump, visit=keep)
 
     scores = {"preference_score": "very high", "aesthetic_score": "very high"}

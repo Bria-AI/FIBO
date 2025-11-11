@@ -1,7 +1,7 @@
 import os
-import torch
 from typing import List, Union
 
+import torch
 from diffusers.optimization import get_scheduler
 from diffusers.utils import logging
 from torch.optim import Optimizer
@@ -64,9 +64,7 @@ def get_cosine_schedule_with_warmup_and_decay(
     return LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
-def get_lr_scheduler(
-    name, optimizer, num_warmup_steps, num_training_steps, constant_steps
-):
+def get_lr_scheduler(name, optimizer, num_warmup_steps, num_training_steps, constant_steps):
     if name != "constant_with_warmup_cosine_decay":
         return get_scheduler(
             name=name,
@@ -75,7 +73,7 @@ def get_lr_scheduler(
             num_training_steps=num_training_steps,
         )
 
-    # Usign custom warmup+cnstant+decay scheduler
+    # Using custom warmup+cnstant+decay scheduler
     return get_cosine_schedule_with_warmup_and_decay(
         optimizer=optimizer,
         num_warmup_steps=num_warmup_steps,
@@ -97,13 +95,8 @@ def get_smollm_prompt_embeds(
     if prompts[0] == "":
         bs = len(prompts)
         assert all(p == "" for p in prompts)
-        text_input_ids = (
-            torch.zeros([bs, 1], dtype=torch.int64, device=text_encoder.device)
-            + bot_token_id
-        )
-        attention_mask = torch.ones(
-            [bs, 1], dtype=torch.int64, device=text_encoder.device
-        )
+        text_input_ids = torch.zeros([bs, 1], dtype=torch.int64, device=text_encoder.device) + bot_token_id
+        attention_mask = torch.ones([bs, 1], dtype=torch.int64, device=text_encoder.device)
     else:
         text_inputs = tokenizer(
             prompts,
@@ -119,9 +112,7 @@ def get_smollm_prompt_embeds(
     if len(prompts) == 1:
         assert (attention_mask == 1).all()
 
-    hidden_states = text_encoder(
-        text_input_ids, attention_mask=attention_mask, output_hidden_states=True
-    ).hidden_states
+    hidden_states = text_encoder(text_input_ids, attention_mask=attention_mask, output_hidden_states=True).hidden_states
     # We need a 4096 dim so since we have 2048 we take last 2 layers
     prompt_embeds = torch.concat([hidden_states[-1], hidden_states[-2]], dim=-1)
 
@@ -129,7 +120,7 @@ def get_smollm_prompt_embeds(
 
 
 def pad_embedding(prompt_embeds, max_tokens):
-    # Padds a tensor which is not masked, i.e. the "initial" tensor mask is 1's
+    # Pads a tensor which is not masked, i.e. the "initial" tensor mask is 1's
     # We extend the tokens to max tokens and provide a mask to differentiate the masked areas
     b, seq_len, dim = prompt_embeds.shape
     padding = torch.zeros(
@@ -137,9 +128,7 @@ def pad_embedding(prompt_embeds, max_tokens):
         dtype=prompt_embeds.dtype,
         device=prompt_embeds.device,
     )
-    attentions_mask = torch.zeros(
-        (b, max_tokens), dtype=prompt_embeds.dtype, device=prompt_embeds.device
-    )
+    attentions_mask = torch.zeros((b, max_tokens), dtype=prompt_embeds.dtype, device=prompt_embeds.device)
     attentions_mask[:, :seq_len] = 1  # original tensor is not masked
     prompt_embeds = torch.concat([prompt_embeds, padding], dim=1)
 
@@ -159,9 +148,7 @@ def load_checkpoint(accelerator, args):
         path = dirs[-1] if len(dirs) > 0 else None
 
     if path is None:
-        accelerator.print(
-            f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
-        )
+        accelerator.print(f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run.")
         args.resume_from_checkpoint = None
     else:
         accelerator.print(f"Resuming from checkpoint {path}")
@@ -224,10 +211,7 @@ class UniformTimestepSampler(TimestepSampler):
         seq_length: int | None = None,
         device: torch.device = None,
     ) -> torch.Tensor:  # noqa: ARG002
-        return (
-            torch.rand(batch_size, device=device) * (self.max_value - self.min_value)
-            + self.min_value
-        )
+        return torch.rand(batch_size, device=device) * (self.max_value - self.min_value) + self.min_value
 
     def sample_for(self, batch: torch.Tensor) -> torch.Tensor:
         if batch.ndim != 3:
@@ -246,9 +230,7 @@ class ShiftedLogitNormalTimestepSampler:
     def __init__(self, std: float = 1.0):
         self.std = std
 
-    def sample(
-        self, batch_size: int, seq_length: int, device: torch.device = None
-    ) -> torch.Tensor:
+    def sample(self, batch_size: int, seq_length: int, device: torch.device = None) -> torch.Tensor:
         """Sample timesteps for a batch from a shifted logit-normal distribution.
 
         Args:
@@ -313,9 +295,7 @@ class ShiftedStretchedLogitNormalTimestepSampler:
         self.uniform_sampler = UniformTimestepSampler()
         self.uniform_prob = uniform_prob
 
-    def sample(
-        self, batch_size: int, seq_length: int, device: torch.device = None
-    ) -> torch.Tensor:
+    def sample(self, batch_size: int, seq_length: int, device: torch.device = None) -> torch.Tensor:
         # Determine which sampler to use for each batch element
         should_use_uniform = torch.rand(batch_size, device=device) < self.uniform_prob
 
@@ -354,9 +334,7 @@ class ShiftedStretchedLogitNormalTimestepSampler:
             raise ValueError(f"Batch should have 3 dimensions, got {batch.ndim}")
 
         batch_size, seq_length, _ = batch.shape
-        return self.sample(
-            batch_size=batch_size, seq_length=seq_length, device=batch.device
-        )
+        return self.sample(batch_size=batch_size, seq_length=seq_length, device=batch.device)
 
 
 def init_training_scheduler():

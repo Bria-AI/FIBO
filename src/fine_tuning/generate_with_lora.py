@@ -2,10 +2,10 @@ import argparse
 import json
 import os
 
-from diffusers import BriaFiboPipeline
-from diffusers.loaders import FluxLoraLoaderMixin
 import torch
 import ujson
+from diffusers import BriaFiboPipeline
+from diffusers.loaders import FluxLoraLoaderMixin
 
 RESOLUTIONS_WH = [
     "832 1248",
@@ -52,9 +52,7 @@ def parse_resolution(raw_value: str) -> tuple[int, int]:
     normalised = raw_value.replace(",", " ").replace("x", " ")
     parts = [part for part in normalised.split() if part]
     if len(parts) != 2:
-        raise SystemExit(
-            "Resolution must contain exactly two integers, e.g. '1024 1024'."
-        )
+        raise SystemExit("Resolution must contain exactly two integers, e.g. '1024 1024'.")
 
     try:
         width, height = (int(parts[0]), int(parts[1]))
@@ -82,7 +80,7 @@ def parse_args():
         help="Path to LoRA checkpoint directory",
     )
     parser.add_argument(
-        "--structered_prompt_path",
+        "--structured_prompt_path",
         type=str,
         required=True,
         help="Path to structured prompt JSON file",
@@ -111,7 +109,7 @@ def main():
     args = parse_args()
 
     # load json prompt
-    with open(args.structered_prompt_path, "r") as f:
+    with open(args.structured_prompt_path, "r") as f:
         prompt = json.load(f)
     prompt = ujson.dumps(prompt, escape_forward_slashes=False)
 
@@ -125,9 +123,7 @@ def main():
 
     width, height = parse_resolution(args.resolution)
     if f"{width} {height}" not in RESOLUTIONS_WH:
-        print(
-            f"Note: {width}x{height} is outside the preset resolutions used by the original demo."
-        )
+        print(f"Note: {width}x{height} is outside the preset resolutions used by the original demo.")
 
     generator = torch.Generator(device="cuda").manual_seed(args.seed)
     results = pipe(

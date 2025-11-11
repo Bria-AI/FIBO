@@ -73,9 +73,7 @@ def parse_resolution(raw_value: str) -> tuple[int, int]:
 def build_parser() -> argparse.ArgumentParser:
     """Configure the CLI parser."""
     parser = argparse.ArgumentParser(description="Generate images with the FIBO model.")
-    parser.add_argument(
-        "--pipeline-name", type=str, default="briaai/FIBO", help="Pipeline name to use."
-    )
+    parser.add_argument("--pipeline-name", type=str, default="briaai/FIBO", help="Pipeline name to use.")
     parser.add_argument("--vlm-model", type=str, default="briaai/FIBO-vlm", help="VLM model to use.")
     parser.add_argument("--model-mode", choices=["local", "gemini"], default="gemini", help="Model mode to use.")
     parser.add_argument(
@@ -221,14 +219,11 @@ def main():
         negative_payload = get_default_negative_prompt(json.loads(prompt_payload))
 
     pipeline = create_pipeline(pipeline_name=args.pipeline_name, device="cuda")
-    
+
     if args.enable_teacache:
         print(f"Enabling TeaCache with threshold={args.teacache_threshold}")
-        pipeline.enable_teacache(
-            num_inference_steps=args.num_steps,
-            rel_l1_thresh=args.teacache_threshold
-        )
-    
+        pipeline.enable_teacache(num_inference_steps=args.num_steps, rel_l1_thresh=args.teacache_threshold)
+
     if isinstance(json_prompt, dict) and "short_description" in json_prompt:
         print(f"short_description: {json_prompt['short_description']}")
 
