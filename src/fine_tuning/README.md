@@ -94,7 +94,7 @@ After training, you can generate images using your fine-tuned LoRA weights.
 python src/fine_tuning/generate_with_lora.py \
   --pretrained_model_name_or_path briaai/FIBO \
   --lora_ckpt_path example_finetune_results/checkpoint_final \
-  --structured_prompt_path exxample_structured_prompt.json \
+  --structured_prompt_path example_structured_prompt.json \
   --output_image_path generated_image.png \
   --seed 42
 ```
