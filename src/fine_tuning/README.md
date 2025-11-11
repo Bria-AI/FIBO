@@ -39,7 +39,7 @@ image2.jpg,"{""short_description"":""Another bear..."",""objects"":[...]}"
 python src/fine_tuning/fine_tune_fibo.py \
   --checkpointing_steps 250 \
   --max_train_steps 1010 \
-  --output_dir exmaple_finetune_results \
+  --output_dir example_finetune_results \
   --dataset_name briaai/fine_tune_example \
   --lora_rank 64 \
   --train_batch_size 1 \
@@ -93,8 +93,8 @@ After training, you can generate images using your fine-tuned LoRA weights.
 ```bash
 python src/fine_tuning/generate_with_lora.py \
   --pretrained_model_name_or_path briaai/FIBO \
-  --lora_ckpt_path exmaple_finetune_results/checkpoint_final \
-  --structered_prompt_path exxample_structured_prompt.json \
+  --lora_ckpt_path example_finetune_results/checkpoint_final \
+  --structured_prompt_path exxample_structured_prompt.json \
   --output_image_path generated_image.png \
   --seed 42
 ```
@@ -103,13 +103,13 @@ python src/fine_tuning/generate_with_lora.py \
 
 - `--pretrained_model_name_or_path`: Base FIBO model path (default: "briaai/FIBO")
 - `--lora_ckpt_path`: Path to the checkpoint directory containing LoRA weights (e.g., `checkpoint_final`)
-- `--structered_prompt_path`: Path to a JSON file containing the structured prompt
+- `--structured_prompt_path`: Path to a JSON file containing the structured prompt
 - `--output_image_path`: Where to save the generated image
 - `--seed`: Random seed for reproducibility (default: 42)
 
 ### Prompt Format
 
-The `--structered_prompt_path` argument should point to a JSON file containing a structured prompt. This prompt should use the same format as the captions you used for training. If your training set included certain fields with repeating content, or a recurring trigger word, make sure to also include those in your generation prompt for best results.
+The `--structured_prompt_path` argument should point to a JSON file containing a structured prompt. This prompt should use the same format as the captions you used for training. If your training set included certain fields with repeating content, or a recurring trigger word, make sure to also include those in your generation prompt for best results.
 
 ```json
 {

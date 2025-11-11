@@ -217,7 +217,7 @@ class BriaFiboAttention(torch.nn.Module, AttentionModuleMixin):
         return self.processor(self, hidden_states, encoder_hidden_states, attention_mask, image_rotary_emb, **kwargs)
 
 
-class FIBOEmbedND(torch.nn.Module):
+class FIBOEmbedAND(torch.nn.Module):
     # modified from https://github.com/black-forest-labs/flux/blob/c00d7c60b085fce8058b9df845e036090873f2ce/src/flux/modules/layers.py#L11
     def __init__(self, theta: int, axes_dim: List[int]):
         super().__init__()
@@ -472,7 +472,7 @@ class BriaFiboTransformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
         self.out_channels = in_channels
         self.inner_dim = self.config.num_attention_heads * self.config.attention_head_dim
 
-        self.pos_embed = FIBOEmbedND(theta=rope_theta, axes_dim=axes_dims_rope)
+        self.pos_embed = FIBOEmbedAND(theta=rope_theta, axes_dim=axes_dims_rope)
 
         self.time_embed = TimestepProjEmbeddings(embedding_dim=self.inner_dim, time_theta=time_theta)
 
@@ -662,31 +662,31 @@ class BriaFiboTransformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
     def enable_teacache(self, num_inference_steps: int, rel_l1_thresh: float = 1.0):
         """
         Enable TeaCache for faster inference by caching and reusing intermediate computations.
-        
+
         TeaCache monitors the change in hidden states between denoising steps and reuses
         cached computations when changes are below a threshold, significantly speeding up
         inference with minimal quality loss.
-        
+
         Args:
             num_inference_steps (int): Total number of denoising steps that will be used.
-            rel_l1_thresh (float, optional): Threshold for cache reuse decision. 
+            rel_l1_thresh (float, optional): Threshold for cache reuse decision.
                 Higher values result in more aggressive caching (faster, potentially lower quality).
                 Lower values result in more conservative caching (slower, better quality).
                 Defaults to 1.0. Recommended range: 0.6-1.0.
-        
+
         Example:
             >>> transformer.enable_teacache(num_inference_steps=50, rel_l1_thresh=1.0)
         """
         # Import the teacache forward function
         from .teacache import teacache_forward
-        
+
         # Store the original forward method if not already stored
-        if not hasattr(self.__class__, '_original_forward'):
+        if not hasattr(self.__class__, "_original_forward"):
             self.__class__._original_forward = self.__class__.forward
-        
+
         # Replace forward with teacache version
         self.__class__.forward = teacache_forward
-        
+
         # Initialize TeaCache state variables
         self.__class__.enable_teacache = True
         self.__class__.num_steps = num_inference_steps
@@ -695,27 +695,27 @@ class BriaFiboTransformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
         self.__class__.accumulated_rel_l1_distance = 0.0
         self.__class__.previous_modulated_input = None
         self.__class__.previous_residual = None
-        
+
         logger.info(f"TeaCache enabled: num_steps={num_inference_steps}, threshold={rel_l1_thresh}")
 
     def disable_teacache(self):
         """
         Disable TeaCache and restore the original forward method.
-        
+
         This cleans up TeaCache state and restores normal inference behavior.
-        
+
         Example:
             >>> transformer.disable_teacache()
         """
         # Restore original forward method
-        if hasattr(self.__class__, '_original_forward'):
+        if hasattr(self.__class__, "_original_forward"):
             self.__class__.forward = self.__class__._original_forward
-        
+
         # Clean up TeaCache state
         self.__class__.enable_teacache = False
         self.__class__.cnt = 0
         self.__class__.accumulated_rel_l1_distance = 0.0
         self.__class__.previous_modulated_input = None
         self.__class__.previous_residual = None
-        
+
         logger.info("TeaCache disabled")

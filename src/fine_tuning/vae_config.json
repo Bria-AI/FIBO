@@ -119,7 +119,7 @@
   "patch_size": 2,
   "scale_factor_spatial": 16,
   "scale_factor_temporal": 4,
-  "temperal_downsample": [
+  "temporal_downsample": [
     false,
     true,
     true

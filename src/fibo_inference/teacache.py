@@ -1,5 +1,6 @@
 # teacache.py
 from typing import Any, Dict, Optional, Union
+
 import numpy as np
 import torch
 from diffusers.models.modeling_outputs import Transformer2DModelOutput
@@ -17,10 +18,13 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 @torch.no_grad()
 def _checkpoint_or_run_block(module, *inputs):
     if torch.is_grad_enabled():
+
         def create_custom_forward(mod):
             def custom_forward(*x):
                 return mod(*x)
+
             return custom_forward
+
         ckpt_kwargs: Dict[str, Any] = {"use_reentrant": False} if is_torch_version(">=", "1.11.0") else {}
         return torch.utils.checkpoint.checkpoint(create_custom_forward(module), *inputs, **ckpt_kwargs)
     else:
@@ -55,7 +59,9 @@ def teacache_forward(
         scale_lora_layers(self, lora_scale)
     else:
         if joint_attention_kwargs is not None and joint_attention_kwargs.get("scale", None) is not None:
-            logger.warning("Passing `scale` via `joint_attention_kwargs` when not using the PEFT backend is ineffective.")
+            logger.warning(
+                "Passing `scale` via `joint_attention_kwargs` when not using the PEFT backend is ineffective."
+            )
 
     # ----- Input embeddings -----
     # Token/latent embedding
@@ -136,11 +142,11 @@ def teacache_forward(
         for index_block, block in enumerate(self.transformer_blocks):
             # FIBO: concatenate text_encoder_layer into encoder_hidden_states before block call
             current_text_encoder_layer = text_encoder_layers[block_id]
-            encoder_hidden_states = torch.cat([
-                encoder_hidden_states[:, :, :self.inner_dim // 2], current_text_encoder_layer
-            ], dim=-1)
+            encoder_hidden_states = torch.cat(
+                [encoder_hidden_states[:, :, : self.inner_dim // 2], current_text_encoder_layer], dim=-1
+            )
             block_id += 1
-            
+
             encoder_hidden_states, hidden_states = _checkpoint_or_run_block(
                 block,
                 hidden_states,
@@ -154,12 +160,12 @@ def teacache_forward(
         for index_block, block in enumerate(self.single_transformer_blocks):
             # FIBO: concatenate text_encoder_layer, then concat encoder+hidden states
             current_text_encoder_layer = text_encoder_layers[block_id]
-            encoder_hidden_states = torch.cat([
-                encoder_hidden_states[:, :, :self.inner_dim // 2], current_text_encoder_layer
-            ], dim=-1)
+            encoder_hidden_states = torch.cat(
+                [encoder_hidden_states[:, :, : self.inner_dim // 2], current_text_encoder_layer], dim=-1
+            )
             block_id += 1
             hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
-            
+
             hidden_states = _checkpoint_or_run_block(
                 block,
                 hidden_states,
@@ -167,7 +173,7 @@ def teacache_forward(
                 image_rotary_emb,
                 joint_attention_kwargs,
             )
-            
+
             encoder_hidden_states = hidden_states[:, : encoder_hidden_states.shape[1], ...]
             hidden_states = hidden_states[:, encoder_hidden_states.shape[1] :, ...]
 

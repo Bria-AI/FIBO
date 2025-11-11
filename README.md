@@ -87,6 +87,11 @@
     <b>Inspire:</b> Provide an image instead of text. FIBO’s vision–language model extracts a detailed, structured prompt, blends it with your creative intent, and produces related images—ideal for inspiration without overreliance on the original.
   </li>
 </ul>
+<h2> News</h2>
+<ul>
+  <li>2025-11-11: Fine-tuning code is now available [here](src/fine_tuning/README.md)! 🎉</li>
+  <li>2025-11-10: Add support for TeaCache to speed up generation by 3x with minimal quality loss 🏎️</li>
+</ul>
 
 <h2>⚡ Quick Start</h2>
 
@@ -155,6 +160,24 @@ export PYTHONPATH=${PYTHONPATH}:${PWD}
 </code></pre>
   </li>
 </ol>
+
+## Development
+
+This project uses a `Makefile` to streamline common development tasks.
+
+To install dependencies and set up pre-commit hooks, run:
+
+```bash
+make install
+```
+
+The following commands are also available:
+
+*   `make lint`: Run linters to check for code quality.
+*   `make format`: Format the code according to the project's style guidelines.
+*   `make check`: Run both linters and formatters.
+*   `make clean`: Remove the virtual environment.
+*   `make help`: Display a list of all available commands.
 
 <h3>Gemini Setup</h3>
 
