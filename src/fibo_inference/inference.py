@@ -15,7 +15,7 @@ from src.fibo_inference.vlm.common import DEFAULT_SAMPLING, DEFAULT_STOP_SEQUENC
 RAW_TASK_NAME = "raw"
 
 
-def create_pipeline(pipeline_name: str, device: str) -> BriaFiboPipeline:
+def create_pipeline(pipeline_name: str, device: str, lora_path: Optional[str] = None) -> BriaFiboPipeline:
     """Initialise the FIBO pipeline on the requested device."""
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
     pipe = BriaFiboPipeline.from_pretrained(
@@ -24,6 +24,8 @@ def create_pipeline(pipeline_name: str, device: str) -> BriaFiboPipeline:
         trust_remote_code=True,
     )
     pipe.to(device=device)
+    if lora_path:
+        pipe.load_lora_weights(lora_path)
     return pipe
 
 

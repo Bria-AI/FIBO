@@ -158,6 +158,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=1.0,
         help="TeaCache threshold (0.6-1.0). Higher = faster but potentially lower quality. Default: 1.0",
     )
+    parser.add_argument(
+        "--lora-path",
+        type=str,
+        default=None,
+        help="Path to the LoRA checkpoint.",
+    )
+    parser.add_argument(
+        "--fibo-lite",
+        action="store_true",
+        help="Use FIBO-lite pipeline.",
+    )
     return parser
 
 
@@ -169,7 +180,8 @@ def main():
     if args.structured_prompt is None and args.prompt is None and args.image_path is None:
         print("Generating with default prompt")
         args.structured_prompt = json.dumps(default_prompt)
-
+    if args.fibo_lite:
+        args.pipeline_name = "briaai/FIBO-lite"
     if args.model_mode == "gemini":
         api_key = os.getenv("GOOGLE_API_KEY")
         if api_key is None:
@@ -218,7 +230,7 @@ def main():
     if negative_payload == "":
         negative_payload = get_default_negative_prompt(json.loads(prompt_payload))
 
-    pipeline = create_pipeline(pipeline_name=args.pipeline_name, device="cuda")
+    pipeline = create_pipeline(pipeline_name=args.pipeline_name, device="cuda", lora_path=args.lora_path)
 
     if args.enable_teacache:
         print(f"Enabling TeaCache with threshold={args.teacache_threshold}")

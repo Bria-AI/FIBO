@@ -14,7 +14,7 @@ dependencies = [
     "bitsandbytes>=0.48.2",
     "boltons>=25.0.0",
     "datasets>=4.4.1",
-    "diffusers==0.35.2",
+    "diffusers",
     "einops>=0.8.1",
     "google-genai>=1.44.0",
     "huggingface-hub[hf-xet]>=0.35.3",
@@ -39,9 +39,9 @@ dev = [
 ]
 
 [tool.uv.sources]
-diffusers = { git = "https://github.com/huggingface/diffusers" }
 torch = { index = "pytorch-cu128", extra = "cu128" }
 torchvision = { index = "pytorch-cu128", extra = "cu128" }
+diffusers = { git = "https://github.com/huggingface/diffusers" }
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
@@ -60,7 +60,7 @@ respect-gitignore = true
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 select = ["BLE", "E4", "E7", "E9", "F", "I", "ICN", "LOG", "PERF", "W"]
-ignore = []
+ignore = ["PERF203"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
