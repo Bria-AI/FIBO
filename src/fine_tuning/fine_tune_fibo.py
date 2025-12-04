@@ -29,6 +29,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import get_cosine_schedule_with_warmup
 
 from src.fine_tuning.fine_tune_utils import (
     cast_training_params,
@@ -92,16 +93,16 @@ def parse_args():
     parser.add_argument(
         "--learning_rate",
         type=float,
-        default=1.0,
+        default=1e-4,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
     parser.add_argument(
         "--lr_scheduler",
         type=str,
-        default="constant",
+        default="cosine_with_warmup",
         help=(
             'The scheduler type to use. Choose between ["linear", "cosine", "cosine_with_restarts", "polynomial",'
-            ' "constant", "constant_with_warmup",constant_with_warmup_cosine_decay'
+            ' "constant", "constant_with_warmup", "cosine_with_warmup", "constant_with_warmup_cosine_decay"'
         ),
     )
     parser.add_argument(
@@ -113,7 +114,7 @@ def parse_args():
     parser.add_argument(
         "--lr_warmup_steps",
         type=int,
-        default=0,
+        default=100,
         help="Number of steps for the warmup in the lr scheduler.",
     )
     parser.add_argument(
@@ -148,7 +149,7 @@ def parse_args():
     parser.add_argument(
         "--adam_weight_decay",
         type=float,
-        default=1e-4,
+        default=1e-3,
         help="Weight decay to use.",
     )
     parser.add_argument(
@@ -160,7 +161,7 @@ def parse_args():
     parser.add_argument(
         "--optimizer",
         type=str,
-        default="prodigy",
+        default="AdamW",
         help=('The optimizer type to use. Choose between ["AdamW", "prodigy"]'),
     )
     parser.add_argument(
@@ -676,13 +677,20 @@ def main(args):
             safeguard_warmup=args.prodigy_safeguard_warmup,
         )
 
-    lr_scheduler = get_lr_scheduler(
-        name=args.lr_scheduler,
-        optimizer=optimizer,
-        num_warmup_steps=args.lr_warmup_steps * accelerator.num_processes,
-        num_training_steps=args.max_train_steps * accelerator.num_processes,
-        constant_steps=args.constant_steps * accelerator.num_processes,
-    )
+    if args.lr_scheduler == "cosine_with_warmup":
+        lr_scheduler = get_cosine_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=args.lr_warmup_steps * accelerator.num_processes,
+            num_training_steps=args.max_train_steps * accelerator.num_processes,
+        )
+    else:
+        lr_scheduler = get_lr_scheduler(
+            name=args.lr_scheduler,
+            optimizer=optimizer,
+            num_warmup_steps=args.lr_warmup_steps * accelerator.num_processes,
+            num_training_steps=args.max_train_steps * accelerator.num_processes,
+            constant_steps=args.constant_steps * accelerator.num_processes,
+        )
 
     transformer, optimizer, lr_scheduler = accelerator.prepare(transformer, optimizer, lr_scheduler)
 
