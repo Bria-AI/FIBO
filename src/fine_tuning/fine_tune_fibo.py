@@ -28,8 +28,7 @@ from PIL.ImageOps import exif_transpose
 from torch.utils.data import Dataset
 from torchvision import transforms
 from tqdm.auto import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from transformers import get_cosine_schedule_with_warmup
+from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 
 from src.fine_tuning.fine_tune_utils import (
     cast_training_params,
@@ -478,7 +477,7 @@ def clean_json_caption(caption):
     try:
         caption = json.loads(caption)
         return ujson.dumps(caption, escape_forward_slashes=False)
-    except Exception as e:
+    except (json.JSONDecodeError, TypeError) as e:
         raise ValueError(
             f"Caption must be in valid JSON format. Error: {e}. Caption: {caption[:100] if len(str(caption)) > 100 else caption}"
         )
@@ -527,8 +526,9 @@ def main(args):
     try:
         cuda_version = torch.version.cuda
         print(f"PyTorch CUDA Version: {cuda_version}")
-    except Exception:
-        raise Exception("CUDA toolkit (nvcc) not found.")
+    except Exception as e:
+        print(f"Error checking CUDA version: {e}")
+        raise e
 
     args = parse_args()
 
@@ -756,18 +756,16 @@ def main(args):
         args.max_train_steps * args.gradient_accumulation_steps,
     ):
         have_batch = False
+
         while not have_batch:
             try:
                 fetch_time = datetime.now()
                 batch = next(iter_)
                 fetch_time = datetime.now() - fetch_time
                 have_batch = True
-            except Exception as e:
-                if isinstance(e, StopIteration):
-                    iter_ = iter(train_dataloader)
-                    logger.info(f"Rank {RANK} reinit iterator")
-                else:
-                    raise e
+            except StopIteration:
+                iter_ = iter(train_dataloader)
+                logger.info(f"Rank {RANK} reinit iterator")
 
         pixel_values, captions, target_width, target_height = batch  # Get batch with dynamic resolution
         height, width = target_height, target_width

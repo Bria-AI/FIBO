@@ -76,6 +76,13 @@ def main():
     if ret != 0:
         print(f"Error: refine on image task (gemini) failed with exit code {ret}")
         sys.exit(1)
+    print("Running FIBO-lite mode tests...")
+    ret = os.system(
+        "python generate.py --model-mode gemini --prompt 'a dog playing in the park' --seed 1 --output tests/outputs/generate_fibo_lite.png --fibo-lite"
+    )
+    if ret != 0:
+        print(f"Error: generate task (FIBO-lite) failed with exit code {ret}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
