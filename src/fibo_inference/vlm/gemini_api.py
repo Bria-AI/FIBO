@@ -472,7 +472,7 @@ def infer_with_gemini(
     max_tokens: int,
     seed: int = 42,
     image: Optional[Image.Image] = None,
-    model: str = "gemini-2.5-flash",
+    model: str = "gemini-3.5-flash-lite",
 ) -> str:
     """
     Calls Gemini API with the given prompt and returns the raw JSON response.

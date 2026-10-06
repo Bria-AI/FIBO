@@ -79,7 +79,7 @@ def get_json_prompt(
     prompt: Optional[str] = None,
     structured_prompt: Optional[str] = None,
     sampling_config: Optional[SamplingConfig] = None,
-    model_id: str = "gemini-2.5-flash",
+    model_id: str = "gemini-3.5-flash-lite",
 ) -> str:
     """Run the requested task and return the generated structured prompt."""
 
