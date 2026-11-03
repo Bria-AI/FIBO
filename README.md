@@ -320,7 +320,7 @@ python generate.py --prompt "your prompt" --enable-teacache --teacache-threshold
 <h2> 💬 Contact Us</h2>
 <p>If you have questions about this repository, feedback to share, or want to contribute directly, we welcome your issues and pull requests on GitHub. Your contributions help make FIBO better for everyone.</p>
 
-<p>If you're passionate about fundamental research, we're hiring full-time employees (FTEs) and research interns. Don't wait - reach out to us at <a href="mailto:hr@bria.ai">hr@bria.ai</a></p>
+<p>If you're passionate about fundamental research, we're hiring full-time employees (FTEs) and research interns. Don't wait - see our open roles at <a href="https://bria.ai/careers">bria.ai/careers</a></p>
 
 ## Citation
 
