@@ -126,6 +126,7 @@
 <ul>
   <li><a href="https://github.com/Bria-AI/ComfyUI-BRIA-API/blob/main/nodes/generate_image_node_v2.py">Generate Node</a></li>
   <li><a href="https://github.com/Bria-AI/ComfyUI-BRIA-API/blob/main/nodes/refine_image_node_v2.py">Refine Node</a></li>
+  <li><a href="https://cloud.swmgpu.com/w/samofvaani/fibo-2-image-edit-studio">swm cloud (1-click Fibo 2.0 Edit Turbo &amp; Dev ComfyUI Studio)</a></li>
 </ul></p>
 
 <p><b>Source-Code & Weights</b></p>
