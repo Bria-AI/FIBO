@@ -98,6 +98,7 @@
 </ul>
 <h2> News</h2>
 <ul>
+  <li>2026-11-22: Add support for <a href="https://huggingface.co/briaai/Fibo-2.0-dev">Fibo 2.0 Dev</a>: one model for text-to-image <i>and</i> image editing (masked and multi-reference). See <a href="#fibo-2">Fibo 2.0</a> 🎉</li>
   <li>2025-11-11: Technical report is now available <a href="https://arxiv.org/abs/2511.06876">here</a> 🎉</li>
   <li>2025-11-11: Fine-tuning code is now available <a href="src/fine_tuning/README.md">here</a> 🎉</li>
   <li>2025-11-10: Add support for TeaCache to speed up generation by 3x with minimal quality loss 🏎️</li>
@@ -279,6 +280,58 @@ python generate.py --prompt "your prompt" --enable-teacache --teacache-threshold
 </table>
 
 <p>see the examples in the <a href="examples">examples</a> directory for more details.</p>
+
+<h2 id="fibo-2">✨ Fibo 2.0</h2>
+
+<p><a href="https://huggingface.co/briaai/Fibo-2.0-dev">Fibo 2.0 Dev</a> unifies image editing and image generation in a single 8B model, with better text rendering, texture and anatomy. Add <code>--fibo2</code> to any command to use it. Request access to the weights at <a href="https://huggingface.co/briaai/Fibo-2.0-dev">this link</a> first.</p>
+
+<p>Fibo 2.0's structured prompts are written by <a href="https://github.com/Bria-AI/vgl"><code>bria-vgl</code></a> on Gemini, so set <code>GEMINI_API_KEY</code> (or <code>GOOGLE_API_KEY</code>). Use <code>--vgl-llm</code> to pick another <a href="https://docs.litellm.ai/docs/providers">litellm</a> model id. The local FIBO-VLM (<code>--model-mode local</code>) and TeaCache are FIBO-only.</p>
+
+<h3>Generate, Refine and Inspire</h3>
+
+```bash
+python generate.py --fibo2 --prompt "An origami whale swimming through paper clouds" --resolution "1424 800" --seed 0 --output examples/outputs/fibo2_generate.png
+```
+```bash
+python generate.py --fibo2 --structured-prompt examples/outputs/fibo2_generate.json --prompt "make the whale blue" --output examples/outputs/fibo2_refine.png
+```
+```bash
+python generate.py --fibo2 --image-path examples/outputs/fibo2_generate.png --prompt "the same scene, the clouds are orange" --output examples/outputs/fibo2_inspire.png
+```
+
+<p>Use multiples of 16 at about one megapixel for <code>--resolution</code>, e.g. <code>1024 1024</code> (default), <code>1424 800</code> (16:9) or <code>1248 832</code> (3:2).</p>
+
+<h3>Edit</h3>
+
+<p>Pass the image to edit with <code>--edit-image</code> and the instruction with <code>--prompt</code>. Everything you didn't ask to change is preserved. The output size defaults to about one megapixel at the aspect ratio of the first image.</p>
+
+```bash
+python generate.py --fibo2 --edit-image photo.jpg --prompt "replace the jacket with a red leather one" --output edited.png
+```
+
+<p><b>Masked edit:</b> white marks the region to regenerate; everything else is kept.</p>
+
+```bash
+python generate.py --fibo2 --edit-image suitcase.png --mask-path suitcase_mask.png --prompt "replace the suitcase with a vintage brown leather one" --output edited.png
+```
+
+<p><b>Multiple references:</b> repeat <code>--edit-image</code> for up to 4 images, referred to in order as <code>&lt;image_1&gt;</code>, <code>&lt;image_2&gt;</code> and so on.</p>
+
+```bash
+python generate.py --fibo2 --edit-image person.png --edit-image dress.png --prompt "dress the person in <image_1> in the dress from <image_2>" --output result.png
+```
+
+<p>If you have the structured prompt an image was generated from, pass it with <code>--structured-prompt</code> so the edit keeps everything the instruction doesn't change.</p>
+
+<h3>Styles</h3>
+
+<p>Five optional photographic looks for text-to-image: <code>boring_reality</code>, <code>kodak_film</code>, <code>hard_flash</code>, <code>hazy_dreamy</code> and <code>lens_distortion</code>. Each uses its own prompts and negative prompt.</p>
+
+```bash
+python generate.py --fibo2 --prompt "A dog running on a beach" --style kodak_film --output kodak.png
+```
+
+<p>Fibo 2.0 Dev is the full, non-distilled base model: keep the defaults of 50 steps and guidance scale 5.0. LoRAs trained for Fibo 2.0 load with <code>--lora-path</code>.</p>
 
 <h2>🧠 Training and Architecture</h2>
 

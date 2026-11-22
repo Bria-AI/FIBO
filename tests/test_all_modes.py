@@ -84,6 +84,43 @@ def main():
         print(f"Error: generate task (FIBO-lite) failed with exit code {ret}")
         sys.exit(1)
 
+    print("Running Fibo 2.0 mode tests...")
+    fibo2_tasks = [
+        ("generate", "--prompt 'a dog playing in the park' --output tests/outputs/generate_fibo2.png"),
+        (
+            "generate with style",
+            "--prompt 'a dog running on a beach' --style kodak_film --output tests/outputs/generate_fibo2_style.png",
+        ),
+        (
+            "refine",
+            "--structured-prompt tests/outputs/generate_fibo2.json --prompt 'make the dog brown' "
+            "--output tests/outputs/refine_fibo2.png",
+        ),
+        ("inspire", "--image-path assets/zebra_balloons.jpeg --output tests/outputs/inspire_fibo2.png"),
+        (
+            "inspire with prompt",
+            "--image-path assets/zebra_balloons.jpeg --prompt 'make it futuristic' "
+            "--output tests/outputs/inspire_prompt_fibo2.png",
+        ),
+        (
+            "edit",
+            "--edit-image assets/zebra_balloons.jpeg --prompt 'change the zebra to a tiger' "
+            "--output tests/outputs/edit_fibo2.png",
+        ),
+        (
+            "multi-reference edit",
+            "--edit-image assets/face_portrait.jpeg --edit-image assets/owl.png "
+            "--prompt 'the person in <image_1> holding the owl from <image_2>' "
+            "--output tests/outputs/edit_multiref_fibo2.png",
+        ),
+    ]
+    for name, task_args in fibo2_tasks:
+        print(f"Running {name} task (Fibo 2.0)...")
+        ret = os.system(f"python generate.py --fibo2 --seed 1 {task_args}")
+        if ret != 0:
+            print(f"Error: {name} task (Fibo 2.0) failed with exit code {ret}")
+            sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
