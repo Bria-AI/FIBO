@@ -84,15 +84,22 @@ def parse_resolution(raw_value: str) -> tuple[int, int]:
 
 def build_parser() -> argparse.ArgumentParser:
     """Configure the CLI parser."""
-    parser = argparse.ArgumentParser(description="Generate images with the FIBO model.")
+    parser = argparse.ArgumentParser(
+        description="Generate and edit images with Fibo 2.0 (default) or the original FIBO (--fibo1)."
+    )
     parser.add_argument(
         "--pipeline-name",
         type=str,
         default=None,
-        help=f"Pipeline name to use (default: briaai/FIBO, or {FIBO2_PIPELINE_NAME} with --fibo2).",
+        help=f"Pipeline name to use (default: {FIBO2_PIPELINE_NAME}, or briaai/FIBO with --fibo1).",
     )
     parser.add_argument("--vlm-model", type=str, default="briaai/FIBO-vlm", help="VLM model to use.")
-    parser.add_argument("--model-mode", choices=["local", "gemini"], default="gemini", help="Model mode to use.")
+    parser.add_argument(
+        "--model-mode",
+        choices=["local", "gemini"],
+        default="gemini",
+        help="VLM backend for FIBO (--fibo1). Fibo 2.0 always uses bria-vgl.",
+    )
     parser.add_argument(
         "--negative-prompt",
         default="",
@@ -109,7 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             f"Output resolution as 'WIDTH HEIGHT' (default: '{DEFAULT_RESOLUTION}'; "
-            "with --fibo2 --edit-image, about one megapixel at the aspect ratio of the first image)."
+            "with --edit-image, about one megapixel at the aspect ratio of the first image)."
         ),
     )
     parser.add_argument(
@@ -170,7 +177,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--enable-teacache",
         action="store_true",
-        help="Enable TeaCache for faster inference with minimal quality loss.",
+        help="Enable TeaCache for faster inference with minimal quality loss (FIBO only, needs --fibo1).",
     )
     parser.add_argument(
         "--teacache-threshold",
@@ -187,14 +194,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--fibo-lite",
         action="store_true",
-        help="Use FIBO-lite pipeline.",
+        help="Use the FIBO-lite pipeline (implies --fibo1).",
     )
-    fibo2 = parser.add_argument_group("Fibo 2.0", "Options for Fibo 2.0 (text-to-image and image editing).")
-    fibo2.add_argument(
-        "--fibo2",
+    parser.add_argument(
+        "--fibo1",
         action="store_true",
-        help=f"Use Fibo 2.0 ({FIBO2_PIPELINE_NAME}). Structured prompts are written by bria-vgl on Gemini.",
+        help="Use the original FIBO model (briaai/FIBO) instead of Fibo 2.0.",
     )
+    fibo2 = parser.add_argument_group("Fibo 2.0", "Options for Fibo 2.0, the default model.")
     fibo2.add_argument(
         "--edit-image",
         action="append",
@@ -227,13 +234,11 @@ def _load_rgb(path: str) -> Image.Image:
 
 def main_fibo2(args: argparse.Namespace) -> None:
     """Generate or edit an image with Fibo 2.0."""
-    if args.fibo_lite:
-        raise SystemExit("--fibo-lite and --fibo2 cannot be combined.")
     if args.enable_teacache:
-        raise SystemExit("TeaCache is not supported with --fibo2.")
+        raise SystemExit("TeaCache is supported with FIBO only; add --fibo1.")
     if args.model_mode == "local":
         raise SystemExit(
-            "--fibo2 writes structured prompts with bria-vgl on Gemini; --model-mode local is not supported."
+            "Fibo 2.0 writes structured prompts with bria-vgl on Gemini; add --fibo1 to use the local FIBO-VLM."
         )
     if args.edit_images and args.image_path:
         raise SystemExit("Use either --edit-image (edit) or --image-path (inspire), not both.")
@@ -330,11 +335,11 @@ def main():
     args = parser.parse_args()
     if args.num_steps <= 0:
         raise SystemExit("--steps must be a positive integer.")
-    if args.fibo2:
+    if not (args.fibo1 or args.fibo_lite):
         main_fibo2(args)
         return
     if args.edit_images or args.mask_path or args.style or args.vgl_llm:
-        raise SystemExit("--edit-image, --mask-path, --style and --vgl-llm require --fibo2.")
+        raise SystemExit("--edit-image, --mask-path, --style and --vgl-llm are Fibo 2.0 options; drop --fibo1 and --fibo-lite.")
     if args.pipeline_name is None:
         args.pipeline_name = "briaai/FIBO"
     if args.structured_prompt is None and args.prompt is None and args.image_path is None:
