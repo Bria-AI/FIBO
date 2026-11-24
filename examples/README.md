@@ -12,7 +12,7 @@ The `generate` task creates a structured JSON prompt from a short natural-langua
 
 **Example:**
 ```bash
-python generate.py --prompt "a majestic lion in the savannah" --output examples/outputs/generate.png
+python generate.py --fibo1 --prompt "a majestic lion in the savannah" --output examples/outputs/generate.png
 ```
 
 ### Inspire
@@ -21,7 +21,7 @@ The `inspire` task takes an input image and uses the VLM to generate a structure
 
 **Example:**
 ```bash
-python generate.py --image-path assets/zebra_balloons.jpeg --output examples/outputs/inspire.png
+python generate.py --fibo1 --image-path assets/zebra_balloons.jpeg --output examples/outputs/inspire.png
 ```
 
 ### Refine
@@ -31,11 +31,11 @@ The `refine` task modifies an existing structured JSON prompt based on editing i
 **Example:**
 First, generate an image and its structured prompt:
 ```bash
-python generate.py --prompt "a cat sitting on a mat" --output examples/outputs/refine_original.png
+python generate.py --fibo1 --prompt "a cat sitting on a mat" --output examples/outputs/refine_original.png
 ```
 Then, refine it with editing instructions:
 ```bash
-python generate.py --structured-prompt examples/outputs/refine_original.json --prompt "make the cat a dog" --output examples/outputs/refine_edited.png
+python generate.py --fibo1 --structured-prompt examples/outputs/refine_original.json --prompt "make the cat a dog" --output examples/outputs/refine_edited.png
 ```
 
 ### Raw (JSON)
@@ -44,7 +44,7 @@ The `raw` task allows you to provide a detailed, structured JSON prompt directly
 
 **Example:**
 ```bash
-python generate.py --json-prompt examples/outputs/generate.json --output examples/outputs/generate_from_raw.png
+python generate.py --fibo1 --json-prompt examples/outputs/generate.json --output examples/outputs/generate_from_raw.png
 ```
 You can also pass the JSON as a string.
 
