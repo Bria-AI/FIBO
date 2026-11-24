@@ -7,20 +7,9 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image
 
-from src.fibo_inference.fibo2 import (
-    FIBO2_PIPELINE_NAME,
-    FIBO2_STYLES,
-    create_fibo2_pipeline,
-    default_fibo2_negative_prompt,
-    load_fibo2_fonts,
-    resolve_fibo2_prompt,
-    run_fibo2,
-)
 from src.fibo_inference.inference import (
     create_pipeline,
-    load_structured_prompt_input,
     resolve_structured_prompt,
     run,
 )
@@ -40,7 +29,6 @@ RESOLUTIONS_WH = [
 ]
 
 DEFAULT_STEPS = 50
-DEFAULT_RESOLUTION = "1024 1024"
 DEFAULT_OUTPUT_PATH = "output/generated.png"
 
 
@@ -84,22 +72,10 @@ def parse_resolution(raw_value: str) -> tuple[int, int]:
 
 def build_parser() -> argparse.ArgumentParser:
     """Configure the CLI parser."""
-    parser = argparse.ArgumentParser(
-        description="Generate and edit images with Fibo 2.0 (default) or the original FIBO (--fibo1)."
-    )
-    parser.add_argument(
-        "--pipeline-name",
-        type=str,
-        default=None,
-        help=f"Pipeline name to use (default: {FIBO2_PIPELINE_NAME}, or briaai/FIBO with --fibo1).",
-    )
+    parser = argparse.ArgumentParser(description="Generate images with the FIBO model.")
+    parser.add_argument("--pipeline-name", type=str, default="briaai/FIBO", help="Pipeline name to use.")
     parser.add_argument("--vlm-model", type=str, default="briaai/FIBO-vlm", help="VLM model to use.")
-    parser.add_argument(
-        "--model-mode",
-        choices=["local", "gemini"],
-        default="gemini",
-        help="VLM backend for FIBO (--fibo1). Fibo 2.0 always uses bria-vgl.",
-    )
+    parser.add_argument("--model-mode", choices=["local", "gemini"], default="gemini", help="Model mode to use.")
     parser.add_argument(
         "--negative-prompt",
         default="",
@@ -113,11 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--resolution",
-        default=None,
-        help=(
-            f"Output resolution as 'WIDTH HEIGHT' (default: '{DEFAULT_RESOLUTION}'; "
-            "with --edit-image, about one megapixel at the aspect ratio of the first image)."
-        ),
+        default="1024 1024",
+        help="Output resolution as 'WIDTH HEIGHT'.",
     )
     parser.add_argument(
         "--guidance-scale",
@@ -177,7 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--enable-teacache",
         action="store_true",
-        help="Enable TeaCache for faster inference with minimal quality loss (FIBO only, needs --fibo1).",
+        help="Enable TeaCache for faster inference with minimal quality loss.",
     )
     parser.add_argument(
         "--teacache-threshold",
@@ -194,138 +167,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--fibo-lite",
         action="store_true",
-        help="Use the FIBO-lite pipeline (implies --fibo1).",
-    )
-    parser.add_argument(
-        "--fibo1",
-        action="store_true",
-        help="Use the original FIBO model (briaai/FIBO) instead of Fibo 2.0.",
-    )
-    fibo2 = parser.add_argument_group("Fibo 2.0", "Options for Fibo 2.0, the default model.")
-    fibo2.add_argument(
-        "--edit-image",
-        action="append",
-        dest="edit_images",
-        default=None,
-        help="Image to edit with --prompt as the instruction. Repeat for up to 4 references (<image_1>, <image_2>...).",
-    )
-    fibo2.add_argument(
-        "--mask-path",
-        default=None,
-        help="Mask for a single --edit-image: white marks the region to regenerate.",
-    )
-    fibo2.add_argument(
-        "--style",
-        choices=FIBO2_STYLES,
-        default=None,
-        help="Photographic style for text-to-image from a short --prompt.",
-    )
-    fibo2.add_argument(
-        "--vgl-llm",
-        default=None,
-        help="litellm model id bria-vgl uses to write structured prompts (default: bria-vgl's default Gemini model).",
+        help="Use FIBO-lite pipeline.",
     )
     return parser
-
-
-def _load_rgb(path: str) -> Image.Image:
-    return Image.open(path).convert("RGB")
-
-
-def main_fibo2(args: argparse.Namespace) -> None:
-    """Generate or edit an image with Fibo 2.0."""
-    if args.enable_teacache:
-        raise SystemExit("TeaCache is supported with FIBO only; add --fibo1.")
-    if args.model_mode == "local":
-        raise SystemExit(
-            "Fibo 2.0 writes structured prompts with bria-vgl on Gemini; add --fibo1 to use the local FIBO-VLM."
-        )
-    if args.edit_images and args.image_path:
-        raise SystemExit("Use either --edit-image (edit) or --image-path (inspire), not both.")
-    if args.vgl_llm is None or args.vgl_llm.startswith("gemini/"):
-        if not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")):
-            raise SystemExit("bria-vgl needs GEMINI_API_KEY or GOOGLE_API_KEY set in the environment.")
-
-    pipeline_name = args.pipeline_name or FIBO2_PIPELINE_NAME
-    is_edit = bool(args.edit_images)
-
-    width = height = None
-    if args.resolution is not None or not is_edit:
-        width, height = parse_resolution(args.resolution or DEFAULT_RESOLUTION)
-        if width % 16 or height % 16:
-            raise SystemExit("Fibo 2.0 needs a width and height divisible by 16.")
-
-    edit_images = [_load_rgb(path) for path in args.edit_images] if is_edit else None
-    mask = Image.open(args.mask_path).convert("L") if args.mask_path else None
-    reference = _load_rgb(args.image_path) if args.image_path else None
-
-    structured_prompt = args.structured_prompt
-    if structured_prompt is not None:
-        structured_prompt = load_structured_prompt_input(structured_prompt)
-    elif args.prompt is None and reference is None and not is_edit:
-        print("Generating with default prompt")
-        structured_prompt = json.dumps(load_default_prompt())
-
-    if args.seed >= 0:
-        random.seed(args.seed)
-        np.random.seed(args.seed)
-        torch.manual_seed(args.seed)
-
-    assert torch.cuda.is_available(), "CUDA not available"
-
-    start_time = time.perf_counter()
-    try:
-        prompt_payload = resolve_fibo2_prompt(
-            prompt=args.prompt,
-            structured_prompt=structured_prompt,
-            image=reference,
-            edit_images=edit_images,
-            mask=mask,
-            style=args.style,
-            llm=args.vgl_llm,
-            seed=args.seed if args.seed >= 0 else None,
-            pipeline_name=pipeline_name,
-        )
-    except ValueError as exc:
-        raise SystemExit(str(exc)) from exc
-    print(f"VLM prompt generation time: {time.perf_counter() - start_time:.2f} seconds")
-
-    caption = json.loads(prompt_payload)
-    if "edit_instruction" in caption:
-        print(f"edit_instruction: {caption['edit_instruction']}")
-    elif "short_description" in caption:
-        print(f"short_description: {caption['short_description']}")
-
-    negative_payload = args.negative_prompt or default_fibo2_negative_prompt(
-        is_edit=is_edit, style=args.style, pipeline_name=pipeline_name
-    )
-
-    pipeline = create_fibo2_pipeline(pipeline_name=pipeline_name, device="cuda", lora_path=args.lora_path)
-    fonts = load_fibo2_fonts(pipeline_name)
-
-    start_time = time.perf_counter()
-    image = run_fibo2(
-        pipeline=pipeline,
-        prompt_payload=prompt_payload,
-        negative_payload=negative_payload,
-        seed=args.seed,
-        num_steps=args.num_steps,
-        guidance_scale=args.guidance_scale,
-        images=edit_images,
-        mask=mask,
-        width=width,
-        height=height,
-        fonts=fonts,
-    )
-    elapsed = time.perf_counter() - start_time
-
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path)
-    with open(output_path.with_suffix(".json"), "w") as f:
-        json.dump(caption, f, indent=2, ensure_ascii=False)
-    print(f"Generation time: {elapsed:.2f} seconds")
-    print(f"Saved image to {output_path}")
 
 
 @torch.inference_mode()
@@ -333,15 +177,6 @@ def main():
     default_prompt = load_default_prompt()
     parser = build_parser()
     args = parser.parse_args()
-    if args.num_steps <= 0:
-        raise SystemExit("--steps must be a positive integer.")
-    if not (args.fibo1 or args.fibo_lite):
-        main_fibo2(args)
-        return
-    if args.edit_images or args.mask_path or args.style or args.vgl_llm:
-        raise SystemExit("--edit-image, --mask-path, --style and --vgl-llm are Fibo 2.0 options; drop --fibo1 and --fibo-lite.")
-    if args.pipeline_name is None:
-        args.pipeline_name = "briaai/FIBO"
     if args.structured_prompt is None and args.prompt is None and args.image_path is None:
         print("Generating with default prompt")
         args.structured_prompt = json.dumps(default_prompt)
@@ -353,13 +188,15 @@ def main():
             raise SystemExit(
                 "GOOGLE_API_KEY is not set, please set it in the environment variables or switch to local mode"
             )
+    if args.num_steps <= 0:
+        raise SystemExit("--steps must be a positive integer.")
 
     if args.seed >= 0:
         random.seed(args.seed)
         np.random.seed(args.seed)
         torch.manual_seed(args.seed)
 
-    width, height = parse_resolution(args.resolution or DEFAULT_RESOLUTION)
+    width, height = parse_resolution(args.resolution)
     if f"{width} {height}" not in RESOLUTIONS_WH:
         print(f"Note: {width}x{height} is outside the preset resolutions used by the original demo.")
 
